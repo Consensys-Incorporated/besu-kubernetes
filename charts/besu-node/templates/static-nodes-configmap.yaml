@@ -1,0 +1,20 @@
+{{- if .Values.node.besu.p2p.staticNodesList }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "besu-node.fullname" . }}-static-nodes
+  labels:
+    app.kubernetes.io/name: besu-static-nodes
+    app.kubernetes.io/component: besu
+    app.kubernetes.io/part-of: {{ include "besu-node.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    helm.sh/chart: {{ include "besu-node.chart" . }}
+  namespace: {{ .Release.Namespace }}
+data:
+  static-nodes.json: |-
+    {{ .Values.node.besu.p2p.staticNodesList | toJson }}
+{{- end }}

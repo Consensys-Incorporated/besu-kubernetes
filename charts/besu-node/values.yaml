@@ -1,0 +1,182 @@
+---
+
+pvtNetworkFlags:
+  # this will erase keys - so be careful with this on validators
+  removeKeysOnDelete: false
+
+cluster:
+  provider: local  # choose from: local | aws | azure
+  cloudNativeServices: false # set to true to use Cloud Native Services (SecretsManager and IAM for AWS; KeyVault & Managed Identities for Azure)
+  reclaimPolicy: Delete # set to either Retain or Delete
+
+aws:
+  serviceAccountName: besu-sa
+  # the region you are deploying to
+  region: ap-southeast-2
+
+azure:
+  serviceAccountName: besu-sa
+  # the clientId of the user assigned managed identity created in the template
+  identityClientId: azure-clientId
+  # the clientId of the user assigned managed identity in the node pool's resource group
+  nodePoolIdentityClientId: azure-clientId
+  keyvaultName: azure-keyvault
+  # the tenant ID of the key vault
+  tenantId: azure-tenantId
+  # the subscription ID to use - this needs to be set explicitly when using multi tenancy
+  subscriptionId: azure-subscriptionId
+
+storage:
+  sizeLimit: "20Gi"
+  pvcSizeLimit: "20Gi"
+  # NOTE: when you set this to Retain, the volume WILL persist after the chart is delete and you need to manually delete it
+  reclaimPolicy: "Delete" # choose from: Delete | Retain 
+  aws:
+    provisioner: kubernetes.io/aws-ebs
+    parameters:
+      type: gp3
+      fsType: ext4
+
+# fixes permissions of volumes because besu runs as user `besu` and volumes prefer `root`
+volumePermissionsFix:
+  - local
+  - aws
+
+node:
+  besu:
+    envBesuOpts: ""
+    resources:
+      cpuLimit: 0.7
+      cpuRequest: 0.5
+      memLimit: "2G"
+      memRequest: "1G"
+    # privKey:
+    # pubKey:
+    dataPath: "/data/besu"
+    keysPath: "/keys"
+    privateKeyPath: "/keys/nodekey"
+    genesisFilePath: "/etc/genesis/genesis.json"
+    logging: INFO
+    customLabels: {}
+    identity: ""                   # optional human-readable node label (shown in admin_nodeInfo)
+    syncMode: "FULL"               # FULL | FAST | SNAP | CHECKPOINT
+    dataStorageFormat: "FOREST"    # FOREST | BONSAI
+    minGasPrice: 0
+    targetGasLimit: ""             # target block gas limit (empty = Besu default)
+    revertReasonEnabled: true
+    miner:
+      enabled: false
+      coinbase: "0x"
+      extraData: ""
+    txPool:
+      type: "layered"              # layered | legacy
+      priceBump: ""                # % bump required to replace a tx (empty = Besu default 10)
+      maxFutureBySender: ""        # max queued future txs per sender (empty = Besu default)
+      limitByAccountPercentage: "" # max fraction of pool a single account can use (empty = Besu default)
+      maxSize: ""                  # max total tx pool size (empty = Besu default)
+      retentionHours: ""           # hours to retain pending txs (legacy pool only, empty = Besu default)
+    engine:
+      enabled: false               # set true to enable Engine API (PoS / Merge)
+      host: "0.0.0.0"
+      rpcPort: 8551
+      jwtDisabled: true            # disable JWT authentication on Engine API
+      jwtSecret: ""                # path to JWT secret file (used when jwtDisabled=false)
+      hostAllowlist: '["*"]'
+    extraCLIArgs: []               # extra flags appended verbatim to the besu command
+    account:
+      password: 'password'
+      passwordPath: "/keys/accountPassword"
+    p2p:
+      enabled: true
+      host: ""                 # leave empty to use the pod's cluster-local DNS name (recommended); set explicitly to override
+      port: 30303
+      discovery: true
+      staticNodes: "/config/static/static-nodes.json"
+      maxPeers: 25
+      bootnodes: ""                # enode:// URL(s) for bootnodes outside the cluster (e.g. bare-metal VMs); if set, used directly instead of the besu-bootnodes ConfigMap
+      staticNodesList: []          # inline static node enode:// URLs; if set, a ConfigMap is created from this list
+    rpc:
+      enabled: true
+      host: "0.0.0.0"
+      port: 8545
+      api: '["DEBUG","ETH", "ADMIN", "WEB3", "IBFT", "NET", "TRACE", "QBFT", "PERM", "TXPOOL"]'
+      corsOrigins: '["all"]'
+      authenticationEnabled: false
+      authCredentialsFile: ""      # path to credentials file (when authenticationEnabled=true)
+      authJwtPublicKeyFile: ""     # path to JWT public key file (when authenticationEnabled=true)
+      # Number of allowed active RPC connections for Besu node
+      maxActiveConnections: 80
+    ws:
+      enabled: true
+      host: "0.0.0.0"
+      port: 8546
+      api: '["DEBUG","ETH", "ADMIN", "WEB3", "IBFT", "NET", "TRACE", "QBFT", "PERM", "TXPOOL"]'
+      authenticationEnabled: false
+      authCredentialsFile: ""      # path to credentials file (when authenticationEnabled=true)
+      authJwtPublicKeyFile: ""     # path to JWT public key file (when authenticationEnabled=true)
+    graphql:
+      enabled: false
+      host: "0.0.0.0"
+      port: 8547
+      corsOrigins: '["all"]'
+    http:
+      allowlist: '["*"]'
+    metrics:
+      enabled: true
+      host: "0.0.0.0"
+      port: 9545
+      # enable if using prometheus-stack metrics monitoring
+      serviceMonitorEnabled: false      
+    metricsPush:
+      enabled: false
+      host: "5.5.5.5"
+      port: 9091
+      interval: 15
+      prometheusJob: "besu"
+    permissions:
+      enabled: false
+      filePath: ""
+      nodes:
+        enabled: false
+        allowlist: ["enode://abcd..@1.2.3.3:30303","enode://efba..@1.2.3.4:besu-node-bootnode-1-0.besu-node-bootnode-1.besu.svc.cluster.local:30303"]
+      accounts:
+        enabled: false
+        allowlist: ["0x0000000000000000000000000000000000008888"]
+      nodesContract:
+        enabled: false
+        address: "0x0000000000000000000000000000000000009999"
+        version: 2
+      accountsContract:
+        enabled: false
+        address: "0x0000000000000000000000000000000000008888"
+
+image:
+  besu:
+    repository: hyperledger/besu
+    tag: 26.7.0
+    pullPolicy: IfNotPresent
+  hooks:
+    repository: consensys/besu-k8s-hooks
+    tag: "20260820"
+    pullPolicy: IfNotPresent
+
+tolerations:
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoSchedule
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: workloadType
+          operator: In
+          values:
+            - ethereum
+

@@ -1,0 +1,270 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "besu-genesis.name" . }}-init
+  labels:
+{{- if and (eq .Values.cluster.provider "azure") (.Values.cluster.cloudNativeServices) }}
+    azure.workload.identity/use: "true"
+{{- end }}
+    app.kubernetes.io/name: besu-genesis-job
+    app.kubernetes.io/component: genesis-job
+    app.kubernetes.io/part-of: {{ include "besu-genesis.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook-delete-policy: "hook-succeeded"
+spec:
+  # backoffLimit: 3
+  completions: 1
+  template:
+    metadata:
+      labels:
+{{- if and (eq .Values.cluster.provider "azure") (.Values.cluster.cloudNativeServices) }}
+        azure.workload.identity/use: "true"
+{{- end }}
+        app.kubernetes.io/name: besu-genesis-job
+        app.kubernetes.io/component: genesis-job
+        app.kubernetes.io/part-of: {{ include "besu-genesis.fullname" . }}
+        app.kubernetes.io/namespace: {{ .Release.Namespace }}
+        app.kubernetes.io/managed-by: helm
+    spec:
+{{- if and (eq .Values.cluster.provider "azure") (.Values.cluster.cloudNativeServices) }}
+      serviceAccountName: {{ .Values.azure.serviceAccountName }}
+{{- else if and (eq .Values.cluster.provider "aws") (.Values.cluster.cloudNativeServices) }}
+      serviceAccountName: {{ .Values.aws.serviceAccountName }}
+{{- else }}
+      serviceAccountName: {{ include "besu-genesis.name" . }}-sa
+{{- end }}
+      restartPolicy: "Never"
+{{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 8 }}
+{{- end }}
+{{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+{{- end }}
+      containers:
+        - name: generate-genesis
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          securityContext:
+            runAsUser: 0
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - name: generated-config
+              mountPath: /generated-config
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - |
+{{- if and (eq .Values.cluster.provider "azure") (.Values.cluster.cloudNativeServices) }}
+              function safeWriteSecret {
+                key=$1
+                fpath=$2
+                az keyvault secret show --vault-name {{ .Values.azure.keyvaultName }} --name $key > /dev/null 2>&1
+                if [ $? -ne 0 ]; then
+                  az keyvault secret set --vault-name {{ .Values.azure.keyvaultName }} --name $key --file $fpath --encoding utf-8
+                else
+                  # if the key exists pull it from keyvault so that when you update the enodes configmap, you have the right value
+                  az keyvault secret show --vault-name {{ .Values.azure.keyvaultName }} --name $key | jq -r '.value' > $fpath
+                fi
+              }
+              az login --federated-token "$(cat $AZURE_FEDERATED_TOKEN_FILE)" --service-principal -u {{ .Values.azure.identityClientId }} -t {{ .Values.azure.tenantId }}
+              az account set --subscription {{ .Values.azure.subscriptionId }}
+
+{{- else if and (eq .Values.cluster.provider "aws") (.Values.cluster.cloudNativeServices) }}
+              
+              function safeWriteSecret {
+                key=$1
+                fpath=$2
+                aws secretsmanager describe-secret --secret-id $key > /dev/null 2>&1
+                if [ $? -ne 0 ]; then
+                  aws secretsmanager create-secret --name $key --description $key --secret-string file://$fpath
+                else
+                  # if the key exists pull it from keyvault so that when you update the enodes configmap, you have the right value
+                  aws secretsmanager get-secret-value --secret-id $key | jq -r '.SecretString' > $fpath
+                fi
+              }
+
+{{- else }}
+              
+              function safeWriteSecret {
+                key=$1
+                fpath=$2
+                kubectl create secret generic ${key}-keys --namespace {{ .Release.Namespace }} --from-file=nodekey=${fpath}/nodekey --from-file=nodekey.pub=${fpath}/nodekey.pub --from-file=enode=${fpath}/nodekey.pub --from-file=address=${fpath}/address --from-file=accountPrivate.key=${fpath}/accountPrivateKey --from-file=accountPassword=${fpath}/accountPassword --from-file=accountKeystore=${fpath}/accountKeystore --from-file=accountAddress=${fpath}/accountAddress
+              }
+
+{{- end }}
+
+              function safeWriteBesuPeersConfigmap {
+                FOLDER_PATH=$1
+                kubectl create configmap --namespace {{ .Release.Namespace }} besu-peers \
+                  --from-file=static-nodes.json=$FOLDER_PATH/static-nodes.json \
+                  -o yaml --dry-run=client | kubectl apply -f -
+              }
+
+              function safeWriteGenesisConfigmap {
+                FOLDER_PATH=$1
+                kubectl get configmap --namespace {{ .Release.Namespace }} besu-genesis
+                if [ $? -ne 0 ]; then
+                  kubectl create configmap --namespace {{ .Release.Namespace }} besu-genesis --from-file=genesis.json=$FOLDER_PATH/besu/genesis.json
+                fi
+              }
+
+{{- if .Values.genesisConfig.predefined }}
+              echo "Using predefined genesis and keys..."
+              FOLDER_PATH=/generated-config
+              mkdir -p ${FOLDER_PATH}/besu
+              echo '{{ .Values.genesisConfig.rawGenesisJson | b64enc }}' | base64 -d > ${FOLDER_PATH}/besu/genesis.json
+{{- range $v := .Values.genesisConfig.validators }}
+              mkdir -p ${FOLDER_PATH}/validator{{ $v.index }}
+              echo -n '{{ $v.nodekey }}' > ${FOLDER_PATH}/validator{{ $v.index }}/nodekey
+              echo -n '{{ $v.nodekeypub }}' > ${FOLDER_PATH}/validator{{ $v.index }}/nodekey.pub
+              echo -n '{{ $v.address }}' > ${FOLDER_PATH}/validator{{ $v.index }}/address
+              echo -n '{{ $v.accountPrivateKey }}' > ${FOLDER_PATH}/validator{{ $v.index }}/accountPrivateKey
+              echo -n '{{ $v.accountPassword | default "password" }}' > ${FOLDER_PATH}/validator{{ $v.index }}/accountPassword
+              echo '{{ $v.accountKeystore | b64enc }}' | base64 -d > ${FOLDER_PATH}/validator{{ $v.index }}/accountKeystore
+              echo -n '{{ $v.accountAddress }}' > ${FOLDER_PATH}/validator{{ $v.index }}/accountAddress
+{{- end }}
+              echo '[' > ${FOLDER_PATH}/static-nodes.json
+{{- range $j, $v := .Values.genesisConfig.validators }}
+              echo '{{ if gt $j 0 }},{{ end }}"enode://{{ $v.nodekeypub }}@besu-node-validator-{{ $v.index }}-0.besu-node-validator-{{ $v.index }}.{{ $.Release.Namespace }}.svc.cluster.local:30303?discport=0"' >> ${FOLDER_PATH}/static-nodes.json
+{{- end }}
+              echo ']' >> ${FOLDER_PATH}/static-nodes.json
+              safeWriteBesuPeersConfigmap ${FOLDER_PATH}
+
+              echo "Creating bootnodes configmap in k8s ..."
+              printf '[' > /tmp/besu-bootnodes-json
+{{- $bn := list }}
+{{- range $v := .Values.genesisConfig.validators }}
+{{- if $v.isBootnode }}{{- $bn = append $bn (dict "index" $v.index "pub" $v.nodekeypub) }}{{- end }}
+{{- end }}
+{{- range $j, $b := $bn }}
+              printf '{{ if gt $j 0 }},{{ end }}"enode://{{ $b.pub }}@besu-node-validator-{{ $b.index }}-0.besu-node-validator-{{ $b.index }}.{{ $.Release.Namespace }}.svc.cluster.local:30303"' >> /tmp/besu-bootnodes-json
+{{- end }}
+              printf ']' >> /tmp/besu-bootnodes-json
+              tr -d '[]"' < /tmp/besu-bootnodes-json | tr -d '\n' > /tmp/besu-bootnodes-string
+              kubectl create configmap --namespace {{ .Release.Namespace }} besu-bootnodes \
+                --from-file=bootnodes-json=/tmp/besu-bootnodes-json \
+                --from-file=bootnodes-string=/tmp/besu-bootnodes-string \
+                -o yaml --dry-run=client | kubectl apply -f -
+
+              echo "Creating validator secrets in k8s ..."
+{{- range $v := .Values.genesisConfig.validators }}
+{{- if and (ne $.Values.cluster.provider "local") ($.Values.cluster.cloudNativeServices) }}
+              safeWriteSecret besu-node-validator-{{ $v.index }}-nodekey $FOLDER_PATH/validator{{ $v.index }}/nodekey
+              safeWriteSecret besu-node-validator-{{ $v.index }}-nodekeypub $FOLDER_PATH/validator{{ $v.index }}/nodekey.pub
+              safeWriteSecret besu-node-validator-{{ $v.index }}-enode $FOLDER_PATH/validator{{ $v.index }}/nodekey.pub
+              safeWriteSecret besu-node-validator-{{ $v.index }}-address $FOLDER_PATH/validator{{ $v.index }}/address
+              kubectl create configmap --namespace {{ $.Release.Namespace }} besu-node-validator-{{ $v.index }}-address --from-file=address=$FOLDER_PATH/validator{{ $v.index }}/address
+              safeWriteSecret besu-node-validator-{{ $v.index }}-accountPrivateKey $FOLDER_PATH/validator{{ $v.index }}/accountPrivateKey
+              safeWriteSecret besu-node-validator-{{ $v.index }}-accountPassword $FOLDER_PATH/validator{{ $v.index }}/accountPassword
+              safeWriteSecret besu-node-validator-{{ $v.index }}-accountKeystore $FOLDER_PATH/validator{{ $v.index }}/accountKeystore
+              safeWriteSecret besu-node-validator-{{ $v.index }}-accountAddress $FOLDER_PATH/validator{{ $v.index }}/accountAddress
+{{- else }}
+              safeWriteSecret besu-node-validator-{{ $v.index }} "$FOLDER_PATH/validator{{ $v.index }}"
+              kubectl create configmap --namespace {{ $.Release.Namespace }} besu-node-validator-{{ $v.index }}-address --from-file=address=$FOLDER_PATH/validator{{ $v.index }}/address
+{{- end }}
+{{- end }}
+{{- else }}
+              echo "Creating config ..."
+              FOLDER_PATH=$(quorum-genesis-tool --consensus {{ .Values.genesisConfig.genesis.config.algorithm.consensus }} {{ if .Values.genesisConfig.blockchain.nodes.generate }} --validators {{ .Values.genesisConfig.blockchain.nodes.count }} {{ else }} --validators 0 {{ end }} --members 0 {{ if .Values.genesisConfig.validatorsAsBootnodes }}--bootnodes 0{{ else }}--bootnodes 2{{ end }} --chainID {{ .Values.genesisConfig.genesis.config.chainId }} --blockperiod {{ .Values.genesisConfig.genesis.config.algorithm.blockperiodseconds }} --epochLength {{ .Values.genesisConfig.genesis.config.algorithm.epochlength }} --requestTimeout {{ .Values.genesisConfig.genesis.config.algorithm.requesttimeoutseconds }} --difficulty {{ .Values.genesisConfig.genesis.difficulty }} --gasLimit {{ .Values.genesisConfig.genesis.gasLimit }} --coinbase {{ .Values.genesisConfig.genesis.coinbase }} {{ if .Values.genesisConfig.blockchain.accountPassword }} --accountPassword {{ .Values.genesisConfig.blockchain.accountPassword }} {{ end }} --maxCodeSize {{ .Values.genesisConfig.genesis.maxCodeSize }} --txnSizeLimit {{ .Values.genesisConfig.genesis.txnSizeLimit }} --quickstartDevAccounts {{ .Values.genesisConfig.genesis.includeQuickStartAccounts }} --alloc {{ if .Values.genesisConfig.genesis.alloc }} '{{ .Values.genesisConfig.genesis.alloc | toJson }}' {{ else }} '{}' {{ end }} --outputPath /generated-config | tail -1 | sed -e "s/^Artifacts in folder: //")
+{{- end }}
+
+
+              echo $FOLDER_PATH
+              echo "Creating genesis configmap in k8s ..."
+              safeWriteGenesisConfigmap $FOLDER_PATH
+
+              # create the static-nodes with proper dns names for the besu nodes
+{{- if not .Values.genesisConfig.predefined }}
+              echo "[" > $FOLDER_PATH/static-nodes.json
+{{- end }}
+{{- if not .Values.genesisConfig.predefined }}
+              echo "Creating validator secrets in k8s ..."
+              i=1
+              for f in $(find $FOLDER_PATH -type d -iname "validator*" -exec basename {} \; | sort -V); do
+                if [ -d $FOLDER_PATH/${f} ]; then
+                  echo $f
+                  echo "Creating keys in vault for validator-${i} ..."
+
+{{- if and (ne .Values.cluster.provider "local") (.Values.cluster.cloudNativeServices) }}
+
+                  safeWriteSecret besu-node-validator-${i}-nodekey $FOLDER_PATH/${f}/nodekey
+                  safeWriteSecret besu-node-validator-${i}-nodekeypub $FOLDER_PATH/${f}/nodekey.pub 
+                  safeWriteSecret besu-node-validator-${i}-enode $FOLDER_PATH/${f}/nodekey.pub 
+                  safeWriteSecret besu-node-validator-${i}-address $FOLDER_PATH/${f}/address
+                  kubectl create configmap --namespace {{ .Release.Namespace }} besu-node-validator-${i}-address --from-file=address=$FOLDER_PATH/${f}/address
+
+                  safeWriteSecret besu-node-validator-${i}-accountPrivateKey $FOLDER_PATH/${f}/accountPrivateKey
+                  safeWriteSecret besu-node-validator-${i}-accountPassword $FOLDER_PATH/${f}/accountPassword
+                  safeWriteSecret besu-node-validator-${i}-accountKeystore $FOLDER_PATH/${f}/accountKeystore 
+                  safeWriteSecret besu-node-validator-${i}-accountAddress $FOLDER_PATH/${f}/accountAddress 
+
+{{- else }}
+                  
+                  safeWriteSecret besu-node-validator-${i} "$FOLDER_PATH/${f}"
+                  kubectl create configmap --namespace {{ .Release.Namespace }} besu-node-validator-${i}-address --from-file=address=$FOLDER_PATH/${f}/address
+
+{{- end }}
+{{- if not .Values.genesisConfig.predefined }}
+                  # add to the static-nodes
+                  pubkey=$(cat $FOLDER_PATH/${f}/nodekey.pub )
+                  echo ",\"enode://$pubkey@besu-node-validator-$i-0.besu-node-validator-$i.{{ .Release.Namespace }}.svc.cluster.local:30303?discport=0\"" >> $FOLDER_PATH/static-nodes.json
+{{- end }}
+
+                  i=$((i+1))
+                fi
+              done
+{{- end }}
+
+{{- if not .Values.genesisConfig.predefined }}
+              echo "]" >> $FOLDER_PATH/static-nodes.json
+              # remove the extra comma to make it valid json
+              sed -i '0,/,/s///' $FOLDER_PATH/static-nodes.json
+              safeWriteBesuPeersConfigmap $FOLDER_PATH
+
+              echo "Creating bootnodes configmap in k8s ..."
+              printf '[' > /tmp/besu-bootnodes-json
+{{- if .Values.genesisConfig.validatorsAsBootnodes }}
+              bn_i=1
+              for f in $(find $FOLDER_PATH -type d -iname "validator*" -exec basename {} \; | sort -V | head -2); do
+                pubkey=$(cat $FOLDER_PATH/${f}/nodekey.pub)
+                if [ $bn_i -gt 1 ]; then printf ',' >> /tmp/besu-bootnodes-json; fi
+                printf '"enode://%s@besu-node-validator-%d-0.besu-node-validator-%d.{{ .Release.Namespace }}.svc.cluster.local:30303"' "$pubkey" "$bn_i" "$bn_i" >> /tmp/besu-bootnodes-json
+                bn_i=$((bn_i+1))
+              done
+{{- else }}
+              bn_i=1
+              for f in $(find $FOLDER_PATH -type d -iname "bootnode*" -exec basename {} \; | sort -V); do
+                pubkey=$(cat $FOLDER_PATH/${f}/nodekey.pub)
+                if [ $bn_i -gt 1 ]; then printf ',' >> /tmp/besu-bootnodes-json; fi
+                printf '"enode://%s@besu-node-bootnode-%d-0.besu-node-bootnode-%d.{{ .Release.Namespace }}.svc.cluster.local:30303"' "$pubkey" "$bn_i" "$bn_i" >> /tmp/besu-bootnodes-json
+{{- if and (ne .Values.cluster.provider "local") (.Values.cluster.cloudNativeServices) }}
+                safeWriteSecret besu-node-bootnode-${bn_i}-nodekey $FOLDER_PATH/${f}/nodekey
+                safeWriteSecret besu-node-bootnode-${bn_i}-nodekeypub $FOLDER_PATH/${f}/nodekey.pub
+                safeWriteSecret besu-node-bootnode-${bn_i}-enode $FOLDER_PATH/${f}/nodekey.pub
+                safeWriteSecret besu-node-bootnode-${bn_i}-address $FOLDER_PATH/${f}/address
+{{- else }}
+                safeWriteSecret besu-node-bootnode-${bn_i} "$FOLDER_PATH/${f}"
+{{- end }}
+                bn_i=$((bn_i+1))
+              done
+{{- end }}
+              printf ']' >> /tmp/besu-bootnodes-json
+              tr -d '[]"' < /tmp/besu-bootnodes-json | tr -d '\n' > /tmp/besu-bootnodes-string
+              kubectl create configmap --namespace {{ .Release.Namespace }} besu-bootnodes \
+                --from-file=bootnodes-json=/tmp/besu-bootnodes-json \
+                --from-file=bootnodes-string=/tmp/besu-bootnodes-string \
+                -o yaml --dry-run=client | kubectl apply -f -
+{{- end }}
+
+              echo "Completed ..."
+
+      volumes:
+        - name: generated-config
+          emptyDir: {}

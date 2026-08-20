@@ -1,0 +1,143 @@
+---
+pvtNetworkFlags:
+  removeGenesisOnDelete: true
+
+cluster:
+  provider: local  # choose from: local | aws | azure
+  cloudNativeServices: false
+
+aws:
+  serviceAccountName: besu-sa
+  region: ap-southeast-2
+
+azure:
+  serviceAccountName: besu-sa
+  identityClientId: azure-clientId
+  keyvaultName: azure-keyvault
+  tenantId: azure-tenantId
+  subscriptionId: azure-subscriptionId
+
+# genesisConfig.predefined: true → use rawGenesisJson + validators supplied below
+# No keys are generated; every field must be provided explicitly.
+# 
+# Calm down, these are test values to show how it works - it is the output from the quorum genesis tool
+# Please do not send a bug bounty report about this
+genesisConfig:
+  predefined: true
+
+  # Paste the full genesis.json content here (multiline block scalar)
+  rawGenesisJson: |
+    {
+      "nonce": "0x0",
+      "timestamp": "0x58ee40ba",
+      "extraData": "0xf87aa00000000000000000000000000000000000000000000000000000000000000000f8549443f33024e0866fa8fcf15a985cd90cee561577b894a2a7eed46a4d8a5a8886f6b84a43394c915bd75a94bb0f73bddc560d15d305da33366b63078478188d9413b7580ff5909e2d0d36eb11fb11cff173d20556c080c0",
+      "gasLimit": "0xffff",
+      "gasUsed": "0x0",
+      "number": "0x0",
+      "difficulty": "0x1",
+      "coinbase": "0x0000000000000000000000000000000000000000",
+      "mixHash": "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
+      "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "config": {
+        "chainId": 1337,
+        "homesteadBlock": 0,
+        "eip150Block": 0,
+        "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "eip155Block": 0,
+        "eip158Block": 0,
+        "byzantiumBlock": 0,
+        "constantinopleBlock": 0,
+        "petersburgBlock": 0,
+        "istanbulBlock": 0,
+        "muirglacierblock": 0,
+        "berlinBlock": 0,
+        "londonBlock": 0,
+        "contractSizeLimit": 64,
+        "zeroBaseFee": true,
+        "qbft": {
+          "blockperiodseconds": 5,
+          "epochlength": 30000,
+          "requesttimeoutseconds": 10
+        }
+      },
+      "alloc": {
+        "fe3b557e8fb62b89f4916b721be55ceb828dbd73": {
+          "balance": "90000000000000000000000",
+          "comment": "test account from quorum-dev-quickstart -- please remove me before entering production"
+        },
+        "f17f52151EbEF6C7334FAD080c5704D77216b732": {
+          "balance": "90000000000000000000000",
+          "comment": "test account from quorum-dev-quickstart -- please remove me before entering production"
+        },
+        "627306090abaB3A6e1400e9345bC60c78a8BEf57": {
+          "balance": "90000000000000000000000",
+          "comment": "test account from quorum-dev-quickstart -- please remove me before entering production"
+        },
+        "0x1efca881d38c9be18ecc509549550b69278a85e4": {
+          "balance": "1000000000000000000000000000"
+        },
+        "0x4bb84b41f85652ce058373e397656837deb5035e": {
+          "balance": "1000000000000000000000000000"
+        },
+        "0xb065a64313c7c013fac4faa7c1011b65b94a3fed": {
+          "balance": "1000000000000000000000000000"
+        },
+        "0xdbbf0d7f1aec18384cc110c04a48a87d9a502aae": {
+          "balance": "1000000000000000000000000000"
+        },
+        "0x4817fcd7f132223f1c9e5168389acdaf468739e9": {
+          "balance": "1000000000000000000000000000"
+        },
+        "0xf58d81b286f78289ccf0e74473567ea52af90510": {
+          "balance": "1000000000000000000000000000"
+        },
+        "0x431dcbc6e404c252f3cfd523e3832f34932aadb5": {
+          "balance": "1000000000000000000000000000"
+        }
+      }
+    }
+
+  # One entry per validator — fields map directly to the files written into each
+  # validator<N> directory and then stored as k8s secrets by the genesis job.
+  validators:
+    - index: 1
+      nodekey: "61107c19bec7d9f4b09ab740d733a96a6566af0dcb8ddcddde134c45be838f16"           # 32-byte hex, no 0x prefix
+      nodekeypub: "9f2f4d9938e6767a669f9689e5474e36853bb3c2007e533cfd0d3e0afea8c045099abc862f413d56a8d4236645dcce6ed3e4304c723b88800a6e1f9ca91a9d59"         # 64-byte uncompressed hex (enode id)
+      isBootnode: true
+      address: "43f33024e0866fa8fcf15a985cd90cee561577b8"                     # derived from nodekey
+      accountPrivateKey: "0x5df6a7aa0fe341ad37927023becf90d89cbed7ca626a5628ae6c06b3b5a29042"
+      accountPassword: ""
+      accountKeystore: |
+        {"version":3,"id":"0bc3b7d7-38b8-4776-b6a2-ed1eb59a48f7","address":"dbbf0d7f1aec18384cc110c04a48a87d9a502aae","crypto":{"ciphertext":"810f58d2749c6a345efcf8c639b75d3af38ca2216979415be639c8ce1f7f734a","cipherparams":{"iv":"03e1b137cd52d4d4e6c62f375b81b5e6"},"cipher":"aes-128-ctr","kdf":"scrypt","kdfparams":{"dklen":32,"salt":"19d31759a9cb9b78fdd43c9a57ab66274ba14d38d205a6b0de43c96d737d9539","n":262144,"r":8,"p":1},"mac":"14b4f82ce4339b22070645eefa0688dd9d51eb1dcaff0308ae8c4a50f0ed72e5"}}
+      accountAddress: "0xdbbf0d7f1aec18384cc110c04a48a87d9a502aae"
+
+    - index: 2
+      nodekey: "69b23151e477f25674845838ad1f76c2fd31f876c5099dddda28069172ec6797"
+      nodekeypub: "cf5a77becd9fec90fd96fd72400a25e433727dd6ea259ac815f913b99dcc7de84688356f85c6ab9490cff24a922542b5e5ac21d3e60a715f652b19d23595f357"
+      isBootnode: true
+      address: "a2a7eed46a4d8a5a8886f6b84a43394c915bd75a"
+      accountPrivateKey: "0x0b4ecfacb5b657485da77db80c8f3a4de6d26e25c6ab22343f4eaa2cfd375e17"
+      accountPassword: ""
+      accountKeystore: |
+        {"version":3,"id":"76647286-779f-4de2-8838-6c2c7378a09e","address":"4817fcd7f132223f1c9e5168389acdaf468739e9","crypto":{"ciphertext":"d0494619c2b00f72cf78f54919478bbf90b96516aceb8a59d70e77c9260f1841","cipherparams":{"iv":"7b00a72fd721fdda7031e85c5bc1e0ca"},"cipher":"aes-128-ctr","kdf":"scrypt","kdfparams":{"dklen":32,"salt":"6db3bc788a0974608539cecd150010ac79da28e087ebb31fb0ac4015fb17fe43","n":262144,"r":8,"p":1},"mac":"28c71740f36315bca550990e88ee1b4bcb04cf14a00c06b5c708c5fad9aa8150"}}
+      accountAddress: "0x4817fcd7f132223f1c9e5168389acdaf468739e9"
+
+    - index: 3
+      nodekey: "9a59313be16224af714c8b12fb1965f287cd167f5809bd65e07d870c537604d8"
+      nodekeypub: "f475823ae30866fed0c9e7e162c078a37398236aa152a007a0b51732726df8461adfd43ea6977f0ef7c0095f5a7097affb6767c7f41e391ac2cee113aaabff6a"
+      address: "bb0f73bddc560d15d305da33366b63078478188d"
+      accountPrivateKey: "0x692fdbb387f0b40b924ca6e8916f23e049e91ffc0c2c5673b9f964070e479eb5"
+      accountPassword: ""
+      accountKeystore: |
+        {"version":3,"id":"0f913405-03f4-4a57-8c6a-b274b6427288","address":"f58d81b286f78289ccf0e74473567ea52af90510","crypto":{"ciphertext":"80e909dda5f91f233373b9815942412a4b4015c2b2261039f9b790ad5f05b373","cipherparams":{"iv":"e1d84212110311d5299b86703b0c4c0c"},"cipher":"aes-128-ctr","kdf":"scrypt","kdfparams":{"dklen":32,"salt":"b40b97fae3ca03967efe3c975e09583f59adef23f6747d103c121143041da3d9","n":262144,"r":8,"p":1},"mac":"269a3cc0ce5b385c267fcb30404776413c250fb9a28939934ba30f2a426ef6d5"}}
+      accountAddress: "0xf58d81b286f78289ccf0e74473567ea52af90510"
+
+    - index: 4
+      nodekey: "68d3ee74f444ee5c0456201c22aa329bf49b4a290cb6f2f0d9f6fcb8dabb3bc0"
+      nodekeypub: "caca67228bddf687c8aefaeb11ec9f019b145dbd0a15d248e474fac526904c51b60220c246faba707afe95edbaab0b3fd976f9101694ebe552d02f14444ff1b7"
+      address: "13b7580ff5909e2d0d36eb11fb11cff173d20556"
+      accountPrivateKey: "0x220584e321828436e001a947a07643e19da09176e2eb7d8e87bf0341d319b925"
+      accountPassword: ""
+      accountKeystore: |
+        {"version":3,"id":"28f49c0a-b8ee-411c-8daa-5564a74abd34","address":"431dcbc6e404c252f3cfd523e3832f34932aadb5","crypto":{"ciphertext":"5c59d042759fc9f48b254b5ea2ef3e374b1cb258600402b8711067802536baec","cipherparams":{"iv":"d5eef86690a74f293822193e3eff1068"},"cipher":"aes-128-ctr","kdf":"scrypt","kdfparams":{"dklen":32,"salt":"c9140657d8c060723703ff73fc135db164b35a2789b7360537e6928a26d56db0","n":262144,"r":8,"p":1},"mac":"87ba914069294363d2a2050de5b5d1555d812f4ff5f9c13605965cf384d50bf2"}}
+      accountAddress: "0x431dcbc6e404c252f3cfd523e3832f34932aadb5"

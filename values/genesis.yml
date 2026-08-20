@@ -1,0 +1,48 @@
+---
+pvtNetworkFlags:
+  removeGenesisOnDelete: true
+
+cluster:
+  provider: local  # choose from: local | aws | azure
+  cloudNativeServices: false
+
+aws:
+  serviceAccountName: besu-sa
+  region: ap-southeast-2
+
+azure:
+  serviceAccountName: besu-sa
+  identityClientId: azure-clientId
+  keyvaultName: azure-keyvault
+  tenantId: azure-tenantId
+  subscriptionId: azure-subscriptionId
+
+# genesisConfig.predefined: false → generate genesis + validator keys via quorum-genesis-tool
+# genesisConfig.blockchain.nodes.count sets the number of validators
+genesisConfig:
+  predefined: false
+
+  # validatorsAsBootnodes: true  → use the first 2 validators as bootnodes (default)
+  # validatorsAsBootnodes: false → quorum-genesis-tool generates 2 dedicated bootnode keys
+  # node.besu.p2p.bootnodes string takes highest priority over either option.
+  validatorsAsBootnodes: true
+
+  genesis:
+    config:
+      chainId: 1337
+      algorithm:
+        consensus: qbft  # choose from: ibft2 | qbft | clique
+        blockperiodseconds: 5
+        epochlength: 30000
+        requesttimeoutseconds: 20
+    gasLimit: '0x47b760'
+    difficulty: '0x1'
+    coinbase: '0x0000000000000000000000000000000000000000'
+    includeQuickStartAccounts: false
+    maxCodeSize: 64000
+    txnSizeLimit: 64000
+  blockchain:
+    nodes:
+      generate: true
+      count: 4
+    accountPassword: 'password'

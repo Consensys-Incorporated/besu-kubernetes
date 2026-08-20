@@ -1,0 +1,167 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "besu-node.fullname" . }}-besu-config
+  labels:
+    app.kubernetes.io/name: besu-config
+    app.kubernetes.io/component: besu
+    app.kubernetes.io/part-of: {{ include "besu-node.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    helm.sh/chart: {{ include "besu-node.chart" . }}
+  namespace: {{ .Release.Namespace }}
+data:
+  config.toml: |-
+    # Node Information
+    data-path={{ .Values.node.besu.dataPath | quote }}
+    genesis-file={{ .Values.node.besu.genesisFilePath | quote }}
+    logging={{ .Values.node.besu.logging | quote }}
+    node-private-key-file={{ .Values.node.besu.privateKeyPath | quote }}
+
+    {{ if .Values.node.besu.identity -}}
+    identity={{ .Values.node.besu.identity | quote }}
+    {{ end }}
+
+    # Sync
+    sync-mode={{ .Values.node.besu.syncMode | quote }}
+    data-storage-format={{ .Values.node.besu.dataStorageFormat | quote }}
+
+    {{ if .Values.node.besu.targetGasLimit -}}
+    target-gas-limit={{ .Values.node.besu.targetGasLimit | quote }}
+    {{ end }}
+
+    min-gas-price={{ .Values.node.besu.minGasPrice }}
+    revert-reason-enabled={{ .Values.node.besu.revertReasonEnabled }}
+
+    {{ if .Values.node.besu.miner.enabled -}}
+    # Miner
+    miner-enabled=true
+    miner-coinbase={{ .Values.node.besu.miner.coinbase | quote }}
+    {{ end }}
+    {{ if .Values.node.besu.miner.extraData -}}
+    miner-extra-data={{ .Values.node.besu.miner.extraData | quote }}
+    {{ end }}
+
+    {{ if .Values.node.besu.p2p.enabled -}}
+    # P2P network
+    p2p-enabled={{ .Values.node.besu.p2p.enabled }}
+    discovery-enabled={{ .Values.node.besu.p2p.discovery }}
+    static-nodes-file={{ .Values.node.besu.p2p.staticNodes | quote }}
+    p2p-port={{ .Values.node.besu.p2p.port }}
+    max-peers={{ .Values.node.besu.p2p.maxPeers }}
+    {{ end }}
+
+    {{ if .Values.node.besu.p2p.bootnodes -}}
+    bootnodes=[{{ range $i, $e := .Values.node.besu.p2p.bootnodes }}{{ if $i }},{{ end }}"{{ $e }}"{{ end }}]
+    {{ end }}
+
+    {{ if or .Values.node.besu.rpc.enabled .Values.node.besu.graphql.enabled .Values.node.besu.ws.enabled }}
+    host-allowlist={{ .Values.node.besu.http.allowlist }}
+    {{ end }}
+
+    {{ if .Values.node.besu.rpc.enabled -}}
+    # JSON-RPC
+    rpc-http-enabled={{ .Values.node.besu.rpc.enabled }}
+    rpc-http-host={{ .Values.node.besu.rpc.host | quote }}
+    rpc-http-port={{ .Values.node.besu.rpc.port }}
+    rpc-http-api={{ .Values.node.besu.rpc.api }}
+    rpc-http-cors-origins={{ .Values.node.besu.rpc.corsOrigins }}
+    rpc-http-authentication-enabled={{ .Values.node.besu.rpc.authenticationEnabled }}
+    rpc-http-max-active-connections={{ .Values.node.besu.rpc.maxActiveConnections }}
+    {{ if .Values.node.besu.rpc.authenticationEnabled -}}
+    {{ if .Values.node.besu.rpc.authCredentialsFile -}}
+    rpc-http-authentication-credentials-file={{ .Values.node.besu.rpc.authCredentialsFile | quote }}
+    {{ end }}
+    {{ if .Values.node.besu.rpc.authJwtPublicKeyFile -}}
+    rpc-http-authentication-jwt-public-key-file={{ .Values.node.besu.rpc.authJwtPublicKeyFile | quote }}
+    {{ end }}
+    {{ end }}
+    {{ end }}
+
+    {{ if .Values.node.besu.graphql.enabled -}}
+    # GraphQL
+    graphql-http-enabled={{ .Values.node.besu.graphql.enabled }}
+    graphql-http-host={{ .Values.node.besu.graphql.host | quote }}
+    graphql-http-port={{ .Values.node.besu.graphql.port }}
+    graphql-http-cors-origins={{ .Values.node.besu.graphql.corsOrigins }}
+    {{ end }}
+
+    {{ if .Values.node.besu.ws.enabled -}}
+    # WebSockets
+    rpc-ws-enabled={{ .Values.node.besu.ws.enabled }}
+    rpc-ws-host={{ .Values.node.besu.ws.host | quote }}
+    rpc-ws-port={{ .Values.node.besu.ws.port }}
+    rpc-ws-api={{ .Values.node.besu.ws.api }}
+    rpc-ws-authentication-enabled={{ .Values.node.besu.ws.authenticationEnabled }}
+    {{ if .Values.node.besu.ws.authenticationEnabled -}}
+    {{ if .Values.node.besu.ws.authCredentialsFile -}}
+    rpc-ws-authentication-credentials-file={{ .Values.node.besu.ws.authCredentialsFile | quote }}
+    {{ end }}
+    {{ if .Values.node.besu.ws.authJwtPublicKeyFile -}}
+    rpc-ws-authentication-jwt-public-key-file={{ .Values.node.besu.ws.authJwtPublicKeyFile | quote }}
+    {{ end }}
+    {{ end }}
+    {{ end }}
+
+    {{ if .Values.node.besu.engine.enabled -}}
+    # Engine API
+    engine-rpc-enabled=true
+    engine-rpc-port={{ .Values.node.besu.engine.rpcPort }}
+    engine-host-allowlist={{ .Values.node.besu.engine.hostAllowlist }}
+    engine-jwt-disabled={{ .Values.node.besu.engine.jwtDisabled }}
+    {{ if and (not .Values.node.besu.engine.jwtDisabled) .Values.node.besu.engine.jwtSecret -}}
+    engine-jwt-secret={{ .Values.node.besu.engine.jwtSecret | quote }}
+    {{ end }}
+    {{ end }}
+
+    # Tx Pool
+    {{ if eq .Values.node.besu.txPool.type "legacy" -}}
+    tx-pool=legacy
+    {{ end }}
+    {{ if .Values.node.besu.txPool.priceBump -}}
+    tx-pool-price-bump={{ .Values.node.besu.txPool.priceBump }}
+    {{ end }}
+    {{ if .Values.node.besu.txPool.maxFutureBySender -}}
+    tx-pool-max-future-by-sender={{ .Values.node.besu.txPool.maxFutureBySender }}
+    {{ end }}
+    {{ if .Values.node.besu.txPool.limitByAccountPercentage -}}
+    tx-pool-limit-by-account-percentage={{ .Values.node.besu.txPool.limitByAccountPercentage }}
+    {{ end }}
+    {{ if .Values.node.besu.txPool.maxSize -}}
+    tx-pool-max-size={{ .Values.node.besu.txPool.maxSize }}
+    {{ end }}
+    {{ if .Values.node.besu.txPool.retentionHours -}}
+    tx-pool-retention-hours={{ .Values.node.besu.txPool.retentionHours }}
+    {{ end }}
+
+    {{ if .Values.node.besu.permissions.enabled -}}
+    # Permissioning
+    permissions-nodes-config-file-enabled={{ .Values.node.besu.permissions.nodes.enabled }}
+    permissions-nodes-config-file={{ .Values.node.besu.permissions.filePath | quote }}
+    permissions-accounts-config-file-enabled={{ .Values.node.besu.permissions.accounts.enabled }}
+    permissions-accounts-config-file={{ .Values.node.besu.permissions.filePath | quote }}
+    permissions-nodes-contract-enabled={{ .Values.node.besu.permissions.nodesContract.enabled }}
+    permissions-nodes-contract-address={{ .Values.node.besu.permissions.nodesContract.address | quote }}
+    permissions-nodes-contract-version={{ .Values.node.besu.permissions.nodesContract.version }}
+    permissions-accounts-contract-enabled={{ .Values.node.besu.permissions.accountsContract.enabled }}
+    permissions-accounts-contract-address={{ .Values.node.besu.permissions.accountsContract.address | quote }}
+    {{ end }}
+
+    {{ if .Values.node.besu.metrics.enabled -}}
+    # Metrics
+    metrics-enabled={{ .Values.node.besu.metrics.enabled }}
+    metrics-host={{ .Values.node.besu.metrics.host | quote }}
+    metrics-port={{ .Values.node.besu.metrics.port }}
+    {{ end }}
+
+    {{ if .Values.node.besu.metricsPush.enabled -}}
+    # Metrics Push
+    metrics-push-enabled={{ .Values.node.besu.metricsPush.enabled }}
+    metrics-push-host={{ .Values.node.besu.metricsPush.host | quote }}
+    metrics-push-port={{ .Values.node.besu.metricsPush.port }}
+    metrics-push-interval={{ .Values.node.besu.metricsPush.interval }}
+    metrics-push-prometheus-job={{ .Values.node.besu.metricsPush.prometheusJob | quote }}
+    {{ end }}
