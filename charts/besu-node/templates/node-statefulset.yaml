@@ -36,6 +36,11 @@ spec:
   volumeClaimTemplates:
   - metadata:
       name: data
+{{- if and (eq .Values.cluster.provider "azure") (eq .Values.storage.azure.diskType "local-nvme") }}
+      annotations:
+        # required by Azure Container Storage for a PVC (rather than a generic ephemeral volume) on local NVMe
+        localdisk.csi.acstor.io/accept-ephemeral-storage: "true"
+{{- end }}
     spec:
       accessModes: [ "ReadWriteOnce" ]
       storageClassName: {{ include "besu-node.fullname" . }}-storage
@@ -130,15 +135,10 @@ spec:
                 key: bootnodes-string
 {{- end }}
         volumeMounts:
-{{- if and (ne .Values.cluster.provider "local") (.Values.cluster.cloudNativeServices) }}
-          - name: secrets-store
-            mountPath: {{ .Values.node.besu.keysPath }}
-            readOnly: true
-{{- else }}
+          # <fullname>-keys is created by the pre-install hook, or synced by External Secrets when cloudNativeServices=true
           - name: besu-keys
             mountPath: {{ .Values.node.besu.keysPath }}
             readOnly: true
-{{- end }}
           - name: genesis
             mountPath: /etc/genesis
             readOnly: true
@@ -178,7 +178,7 @@ spec:
               --config-file=/etc/besu/config.toml \
               --Xdns-enabled=true --Xdns-update-enabled=true \
               --nat-method=NONE \
-              --p2p-host={{ if .Values.node.besu.p2p.host }}{{ .Values.node.besu.p2p.host }}{{ else }}${POD_IP}{{ end }}{{ range .Values.node.besu.extraCLIArgs }} \
+              --p2p-host={{ if .Values.node.externalDns.enabled }}{{ .Values.node.externalDns.hostname }}{{ else if .Values.node.besu.p2p.host }}{{ .Values.node.besu.p2p.host }}{{ else }}${POD_IP}{{ end }}{{ range .Values.node.besu.extraCLIArgs }} \
               {{ . }}{{ end }}
 
         livenessProbe:
@@ -204,18 +204,9 @@ spec:
         configMap:
           name: {{ include "besu-node.fullname" . }}-besu-config
 
-{{- if and (ne .Values.cluster.provider "local") (.Values.cluster.cloudNativeServices) }}
-      - name: secrets-store
-        csi:
-          driver: secrets-store.csi.k8s.io
-          readOnly: true
-          volumeAttributes:
-            secretProviderClass: {{ include "besu-node.fullname" . }}-secret-provider
-{{- else }}
       - name: besu-keys
         secret:
           secretName: {{ include "besu-node.fullname" . }}-keys
-{{- end }}
 {{- if .Values.node.besu.permissions.enabled }}
       - name: permissions-config
         configMap:

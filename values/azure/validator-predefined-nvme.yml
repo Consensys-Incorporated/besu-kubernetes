@@ -1,0 +1,62 @@
+---
+
+pvtNetworkFlags:
+  removeKeysOnDelete: false
+  isBootnode: false
+
+cluster:
+  provider: azure
+  cloudNativeServices: false
+  reclaimPolicy: Delete
+
+azure:
+  serviceAccountName: besu-sa
+  identityClientId: azure-clientId
+  nodePoolIdentityClientId: azure-clientId
+  keyvaultName: azure-keyvault
+  tenantId: azure-tenantId
+  subscriptionId: azure-subscriptionId
+
+storage:
+  sizeLimit: "50Gi"
+  pvcSizeLimit: "50Gi"
+  reclaimPolicy: Delete
+  azure:
+    # Local NVMe via Azure Container Storage v2 (localdisk.csi.acstor.io).
+    # PREREQUISITE: nodepool VM size with local NVMe (e.g. Lsv3/Lasv4) and Azure Container Storage
+    # enabled on the cluster: az aks update -n <cluster> -g <rg> --enable-azure-container-storage
+    # The driver stripes across all local NVMe disks and pins the PV to the node; data is lost if
+    # the node is deleted/deallocated.
+    diskType: local-nvme
+
+node:
+  besu:
+    rpc:
+      maxActiveConnections: 80
+    metrics:
+      serviceMonitorEnabled: true
+    resources:
+      cpuLimit: 1
+      cpuRequest: 0.5
+      memLimit: "2G"
+      memRequest: "1G"
+
+tolerations:
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoSchedule
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: workloadType
+          operator: In
+          values:
+            - ethereum

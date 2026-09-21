@@ -1,0 +1,189 @@
+---
+# Values for prometheus-community/kube-prometheus-stack (tested against chart 88.5.2)
+#
+#   helm install monitoring prometheus-community/kube-prometheus-stack --version 88.5.2 \
+#     --namespace monitoring --create-namespace --values ./values/monitoring.yml --wait
+#
+# The release MUST be named "monitoring": the besu-node chart labels its ServiceMonitors with
+# `release: monitoring`, which is what Prometheus selects on below.
+#
+# Besu nodes need `node.besu.metrics.enabled: true` and `node.besu.metrics.serviceMonitorEnabled: true`
+# (already set in values/validator.yml, values/rpc.yml etc.)
+
+fullnameOverride: monitoring
+
+prometheus:
+  prometheusSpec:
+    # Only pick up ServiceMonitors/PodMonitors/Rules labelled `release: monitoring` ...
+    serviceMonitorSelectorNilUsesHelmValues: true
+    podMonitorSelectorNilUsesHelmValues: true
+    ruleSelectorNilUsesHelmValues: true
+    # ... from the monitoring and besu namespaces only. The kubernetes.io/metadata.name label is
+    # set automatically on every namespace (k8s >= 1.22). Add namespaces here as required.
+    serviceMonitorNamespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values: ["monitoring", "besu"]
+    podMonitorNamespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values: ["monitoring", "besu"]
+    ruleNamespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values: ["monitoring", "besu"]
+
+    scrapeInterval: 15s
+    evaluationInterval: 15s
+    retention: 2d
+    # storageSpec:
+    #   volumeClaimTemplate:
+    #     spec:
+    #       accessModes: ["ReadWriteOnce"]
+    #       resources:
+    #         requests:
+    #           storage: 10Gi
+
+# Alertmanager - configure receivers per your requirements ie slack, email, pagerduty etc
+# alertmanager:
+#   alertmanagerSpec:
+#     storage:
+#       volumeClaimTemplate:
+#         spec:
+#           accessModes: ["ReadWriteOnce"]
+#           resources:
+#             requests:
+#               storage: 5Gi
+#   config:
+#     global:
+#       resolve_timeout: 5m
+#     route:
+#       group_by: ["namespace", "alertname"]
+#       group_wait: 30s
+#       group_interval: 5m
+#       repeat_interval: 12h
+#       receiver: "null"
+#       routes:
+#         - receiver: "null"
+#           matchers:
+#             - alertname = "Watchdog"
+#         - receiver: "null"
+#           matchers:
+#             - alertname = "InfoInhibitor"
+#         # - receiver: "slack"
+#         #   matchers:
+#         #     - namespace = "besu"
+#     receivers:
+#       - name: "null"
+#       # - name: "slack"
+#       #   slack_configs:
+#       #     - api_url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+#       #       channel: "#besu-alerts"
+#       #       send_resolved: true
+#       #       title: '{{ .CommonLabels.alertname }} ({{ .Status }})'
+#       #       text: '{{ range .Alerts }}{{ .Annotations.description }}{{ "\n" }}{{ end }}'
+#       # - name: "email"
+#       #   email_configs:
+#       #     - to: "ops@example.com"
+#       #       from: "alertmanager@example.com"
+#       #       smarthost: "smtp.example.com:587"
+#       #       auth_username: "alertmanager@example.com"
+#       #       auth_password: "changeme"
+#     inhibit_rules:
+#       - source_matchers: ['severity = "critical"']
+#         target_matchers: ['severity =~ "warning|info"']
+#         equal: ["namespace", "alertname"]
+
+grafana:
+  # local dev only - change for anything shared
+  adminUser: admin
+  adminPassword: password
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: besu
+          orgId: 1
+          folder: Besu
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/besu
+  dashboards:
+    besu:
+      # https://grafana.com/grafana/dashboards/10273-besu-overview/
+      besu-overview:
+        gnetId: 10273
+        revision: 5
+        datasource: Prometheus
+
+# Example Besu alerts - uncomment and tune as required
+# additionalPrometheusRulesMap:
+#   besu:
+#     groups:
+#       - name: besu.rules
+#         rules:
+#           - alert: BesuNodeDown
+#             expr: up{namespace="besu", endpoint="metrics"} == 0
+#             for: 2m
+#             labels:
+#               severity: critical
+#             annotations:
+#               summary: "Besu node {{ $labels.pod }} is down"
+#               description: "Metrics endpoint of {{ $labels.pod }} in {{ $labels.namespace }} has been unreachable for 2m."
+#           - alert: BesuNoPeers
+#             expr: ethereum_peer_count{namespace="besu"} == 0
+#             for: 5m
+#             labels:
+#               severity: critical
+#             annotations:
+#               summary: "Besu node {{ $labels.pod }} has no peers"
+#               description: "{{ $labels.pod }} has had 0 peers for 5m."
+#           - alert: BesuLowPeerCount
+#             expr: ethereum_peer_count{namespace="besu"} < 2
+#             for: 10m
+#             labels:
+#               severity: warning
+#             annotations:
+#               summary: "Besu node {{ $labels.pod }} has a low peer count"
+#               description: "{{ $labels.pod }} has {{ $value }} peers."
+#           - alert: BesuBlockHeightStalled
+#             expr: increase(ethereum_blockchain_height{namespace="besu"}[5m]) == 0
+#             for: 5m
+#             labels:
+#               severity: critical
+#             annotations:
+#               summary: "Besu node {{ $labels.pod }} is not importing blocks"
+#               description: "Chain height on {{ $labels.pod }} has not increased in 10m."
+#           - alert: BesuBehindNetwork
+#             expr: (max(ethereum_blockchain_height{namespace="besu"}) - on() group_right ethereum_blockchain_height{namespace="besu"}) > 10
+#             for: 5m
+#             labels:
+#               severity: warning
+#             annotations:
+#               summary: "Besu node {{ $labels.pod }} is behind the network"
+#               description: "{{ $labels.pod }} is {{ $value }} blocks behind the highest node."
+#           - alert: BesuHighHeapUsage
+#             expr: jvm_memory_bytes_used{namespace="besu", area="heap"} / jvm_memory_bytes_max{namespace="besu", area="heap"} > 0.9
+#             for: 10m
+#             labels:
+#               severity: warning
+#             annotations:
+#               summary: "Besu node {{ $labels.pod }} JVM heap > 90%"
+#               description: "Heap usage on {{ $labels.pod }} is {{ $value | humanizePercentage }}."
+#           - alert: BesuPVCAlmostFull
+#             expr: kubelet_volume_stats_available_bytes{namespace="besu"} / kubelet_volume_stats_capacity_bytes{namespace="besu"} < 0.15
+#             for: 10m
+#             labels:
+#               severity: warning
+#             annotations:
+#               summary: "PVC {{ $labels.persistentvolumeclaim }} is almost full"
+#               description: "Only {{ $value | humanizePercentage }} space left on {{ $labels.persistentvolumeclaim }}."

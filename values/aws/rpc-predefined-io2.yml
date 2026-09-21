@@ -1,0 +1,58 @@
+---
+
+pvtNetworkFlags:
+  removeKeysOnDelete: true
+  isBootnode: false
+
+cluster:
+  provider: aws
+  cloudNativeServices: false
+  reclaimPolicy: Delete
+
+aws:
+  serviceAccountName: besu-sa
+  region: ap-southeast-2
+
+storage:
+  sizeLimit: "50Gi"
+  pvcSizeLimit: "50Gi"
+  reclaimPolicy: Delete
+  aws:
+    # Provisioned IOPS SSD v2 — high-throughput, low-latency block storage.
+    # On Nitro-based instances (m5, c5, r5, m6i etc.) supports io2 Block Express
+    # with up to 256,000 IOPS and 4,000 MB/s throughput.
+    # Set iops to your target; you are billed per provisioned IOPS-hour.
+    diskType: io2
+    iops: "16000"
+
+node:
+  besu:
+    rpc:
+      maxActiveConnections: 80
+    metrics:
+      serviceMonitorEnabled: true
+    resources:
+      cpuLimit: 1
+      cpuRequest: 0.5
+      memLimit: "2G"
+      memRequest: "1G"
+
+tolerations:
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoSchedule
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: workloadType
+          operator: In
+          values:
+            - ethereum

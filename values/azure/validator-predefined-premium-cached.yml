@@ -1,0 +1,64 @@
+---
+
+pvtNetworkFlags:
+  removeKeysOnDelete: false
+  isBootnode: false
+
+cluster:
+  provider: azure
+  cloudNativeServices: false
+  reclaimPolicy: Delete
+
+azure:
+  serviceAccountName: besu-sa
+  identityClientId: azure-clientId
+  nodePoolIdentityClientId: azure-clientId
+  keyvaultName: azure-keyvault
+  tenantId: azure-tenantId
+  subscriptionId: azure-subscriptionId
+
+storage:
+  sizeLimit: "50Gi"
+  pvcSizeLimit: "50Gi"
+  reclaimPolicy: Delete
+  azure:
+    # Premium SSD v1 (Premium_LRS) with ReadOnly host caching.
+    # Note: Premium SSD v2 (PremiumV2_LRS) does NOT support host caching — use v1 if caching is required.
+    # Disk tier is determined by PVC size: P10=128GiB, P20=512GiB, P30=1TiB, P40=2TiB, P50=4TiB.
+    # cachingMode: None | ReadOnly | ReadWrite
+    #   ReadOnly  — best for read-heavy workloads; OS page cache backed by disk cache.
+    #   ReadWrite — write caching enabled; risk of data loss on host crash without write-through.
+    diskType: premium-ssd-v1
+    cachingMode: ReadOnly
+
+node:
+  besu:
+    rpc:
+      maxActiveConnections: 80
+    metrics:
+      serviceMonitorEnabled: true
+    resources:
+      cpuLimit: 1
+      cpuRequest: 0.5
+      memLimit: "2G"
+      memRequest: "1G"
+
+tolerations:
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoSchedule
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: workloadType
+          operator: In
+          values:
+            - ethereum

@@ -1,0 +1,57 @@
+---
+
+pvtNetworkFlags:
+  removeKeysOnDelete: true
+  isBootnode: false
+
+cluster:
+  provider: aws
+  cloudNativeServices: false
+  reclaimPolicy: Delete
+
+aws:
+  serviceAccountName: besu-sa
+  region: ap-southeast-2
+
+storage:
+  sizeLimit: "50Gi"
+  pvcSizeLimit: "50Gi"
+  reclaimPolicy: Delete
+  aws:
+    # General Purpose SSD v3 — cost-effective default.
+    # Baseline 3,000 IOPS and 125 MB/s free; increase via iops/throughput up to 16,000 / 1,000 MB/s.
+    diskType: gp3
+    iops: "6000"
+    throughput: "250"
+
+node:
+  besu:
+    rpc:
+      maxActiveConnections: 80
+    metrics:
+      serviceMonitorEnabled: true
+    resources:
+      cpuLimit: 1
+      cpuRequest: 0.5
+      memLimit: "2G"
+      memRequest: "1G"
+
+tolerations:
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoSchedule
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: workloadType
+          operator: In
+          values:
+            - ethereum

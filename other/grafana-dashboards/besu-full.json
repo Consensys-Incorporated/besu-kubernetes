@@ -20835,7 +20835,7 @@
               "refId": "PrometheusVariableQueryEditor-VariableQuery"
             }
           },
-          "regex": "/^bny-*|virginia-eth-*/",
+          "regex": "/^eth-*/",
           "regexApplyTo": "value",
           "sort": "disabled",
           "definition": "label_values(up{job=\"kube-state-metrics\"},cluster)",

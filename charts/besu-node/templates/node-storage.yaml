@@ -1,4 +1,5 @@
 {{- if eq .Values.cluster.provider "azure" }}
+
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -12,9 +13,53 @@ metadata:
     app.kubernetes.io/managed-by: helm
     app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
     helm.sh/chart: {{ include "besu-node.chart" . }}
-provisioner: file.csi.azure.com # replace with "kubernetes.io/azure-file" if aks version is less than 1.21
 reclaimPolicy: {{ .Values.cluster.reclaimPolicy }}
 allowVolumeExpansion: true
+
+{{- if eq .Values.storage.azure.diskType "local-nvme" }}
+# Local NVMe via Azure Container Storage v2 (localdisk.csi.acstor.io).
+# The driver stripes across every local NVMe disk on the VM and pins each PV to the node it was created on.
+# Prerequisite: Azure Container Storage v2 enabled on the cluster (az aks update --enable-azure-container-storage)
+# and a nodepool with local NVMe (e.g. Lsv3/Lasv4). The PVC carries the accept-ephemeral-storage annotation
+# (see node-statefulset.yaml) — data is lost if the node is deleted/deallocated.
+provisioner: localdisk.csi.acstor.io
+volumeBindingMode: WaitForFirstConsumer
+
+{{- else if eq .Values.storage.azure.diskType "premium-ssd-v1" }}
+# Premium SSD v1 (P-series, Premium_LRS) — supports host caching via storage.azure.cachingMode.
+# Good for IOPS-sensitive workloads where caching helps (e.g. ReadOnly for read-heavy).
+provisioner: disk.csi.azure.com
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  skuName: Premium_LRS
+  kind: managed
+  cachingMode: {{ .Values.storage.azure.cachingMode }}
+
+{{- else if eq .Values.storage.azure.diskType "premium-ssd-v2" }}
+# Premium SSD v2 (PremiumV2_LRS) — higher IOPS/throughput ceiling than v1, configurable per-disk.
+# Host caching is NOT supported; cachingMode is always None.
+# Requires the nodepool to be in a zone that supports Premium SSD v2.
+provisioner: disk.csi.azure.com
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  skuName: PremiumV2_LRS
+  kind: managed
+  cachingMode: None
+
+{{- else if eq .Values.storage.azure.diskType "ultra-disk" }}
+# Ultra Disk (UltraSSD_LRS) — lowest latency, highest IOPS. Host caching NOT supported.
+# Prerequisites: nodepool must be created with --enable-ultra-ssd and placed in a supported zone.
+provisioner: disk.csi.azure.com
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  skuName: UltraSSD_LRS
+  kind: managed
+  cachingMode: None
+
+{{- else }}
+# Azure File (Standard_LRS, default) — shared file storage via SMB.
+# replace provisioner with "kubernetes.io/azure-file" if AKS < 1.21
+provisioner: file.csi.azure.com
 mountOptions:
   - dir_mode=0755
   - file_mode=0755
@@ -24,7 +69,43 @@ mountOptions:
 parameters:
   skuName: Standard_LRS
 
+{{- end }}
+
 {{- else if eq .Values.cluster.provider "aws" }}
+
+{{- if eq .Values.storage.aws.diskType "local-nvme" }}
+---
+# Local NVMe — static hostPath PV to the mounted NVMe instance store.
+# PREREQUISITE: node must be an i3/i3en/i4i instance with device formatted and mounted at storage.aws.nvmePath.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "besu-node.fullname" . }}-storage
+  labels:
+    app.kubernetes.io/name: {{ include "besu-node.fullname" . }}-storage
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: {{ include "besu-node.fullname" . }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    helm.sh/chart: {{ include "besu-node.chart" . }}
+spec:
+  storageClassName: {{ include "besu-node.fullname" . }}-storage
+  persistentVolumeReclaimPolicy: {{ .Values.cluster.reclaimPolicy }}
+  capacity:
+    storage: "{{ .Values.storage.sizeLimit }}"
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "{{ .Values.storage.aws.nvmePath }}/{{ include "besu-node.fullname" . }}"
+    type: DirectoryOrCreate
+{{- if and .Values.affinity .Values.affinity.nodeAffinity .Values.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution }}
+  nodeAffinity:
+    required:
+{{ toYaml .Values.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution | indent 6 }}
+{{- end }}
+
+{{- else }}
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -38,28 +119,30 @@ metadata:
     app.kubernetes.io/managed-by: helm
     app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
     helm.sh/chart: {{ include "besu-node.chart" . }}
-provisioner: {{ .Values.storage.aws.provisioner }}
+provisioner: ebs.csi.aws.com
 reclaimPolicy: {{ .Values.cluster.reclaimPolicy }}
 allowVolumeExpansion: true
-parameters:
-  type: {{ .Values.storage.aws.parameters.type }}
-  fsType: {{ .Values.storage.aws.parameters.fsType }}
+volumeBindingMode: WaitForFirstConsumer
 
-# ---
-# apiVersion: storage.k8s.io/v1
-# kind: StorageClass
-# metadata:
-#   name: {{ include "besu-node.fullname" . }}-storage
-#   namespace: {{ .Release.Namespace }}
-# provisioner: efs.csi.aws.com
-# reclaimPolicy: Retain
-# parameters:
-#   provisioningMode: efs-ap
-#   fileSystemId: #your_file_system_id
-#   directoryPerms: "700"
-#   gidRangeStart: "1000" # optional
-#   gidRangeEnd: "2000" # optional
-#   basePath: "/dynamic_provisioning" # optional
+{{- if eq .Values.storage.aws.diskType "io2" }}
+# Provisioned IOPS SSD v2 (io2 / io2 Block Express on Nitro instances).
+# Set storage.aws.iops for target IOPS (max 256,000 with Block Express).
+parameters:
+  type: io2
+  fsType: ext4
+  iops: "{{ .Values.storage.aws.iops }}"
+
+{{- else }}
+# General Purpose SSD v3 (gp3, default).
+# Set storage.aws.iops (up to 16,000) and storage.aws.throughput (up to 1,000 MB/s).
+parameters:
+  type: gp3
+  fsType: ext4
+  iops: "{{ .Values.storage.aws.iops }}"
+  throughput: "{{ .Values.storage.aws.throughput }}"
+
+{{- end }}
+{{- end }}
 
 {{- else }}
 

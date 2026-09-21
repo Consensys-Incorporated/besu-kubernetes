@@ -6,7 +6,7 @@ pvtNetworkFlags:
 
 cluster:
   provider: local  # choose from: local | aws | azure
-  cloudNativeServices: false # set to true to use Cloud Native Services (SecretsManager and IAM for AWS; KeyVault & Managed Identities for Azure)
+  cloudNativeServices: false # set to true to use Cloud Native Services (SecretsManager and IAM for AWS; KeyVault & Managed Identities for Azure), synced via External Secrets
   reclaimPolicy: Delete # set to either Retain or Delete
 
 aws:
@@ -26,16 +26,56 @@ azure:
   # the subscription ID to use - this needs to be set explicitly when using multi tenancy
   subscriptionId: azure-subscriptionId
 
+# Used when cluster.cloudNativeServices=true: the pre-install hook writes node keys to Key Vault / Secrets Manager,
+# and External Secrets Operator (must be installed on the cluster) syncs them into the <fullname>-keys Secret.
+externalSecrets:
+  apiVersion: external-secrets.io/v1
+  refreshInterval: 1h
+  secretStoreRef:
+    # leave empty to have the chart create a namespaced SecretStore that authenticates as
+    # azure.serviceAccountName (workload identity) or aws.serviceAccountName (IRSA).
+    # Set to use an existing SecretStore / ClusterSecretStore instead.
+    name: ""
+    kind: SecretStore   # SecretStore | ClusterSecretStore
+
 storage:
   sizeLimit: "20Gi"
   pvcSizeLimit: "20Gi"
   # NOTE: when you set this to Retain, the volume WILL persist after the chart is delete and you need to manually delete it
-  reclaimPolicy: "Delete" # choose from: Delete | Retain 
+  reclaimPolicy: "Delete" # choose from: Delete | Retain
   aws:
-    provisioner: kubernetes.io/aws-ebs
-    parameters:
-      type: gp3
-      fsType: ext4
+    # Storage type to use when cluster.provider=aws.
+    # gp3        — General Purpose SSD v3 (ebs.csi.aws.com). Default. Configurable IOPS/throughput.
+    # io2        — Provisioned IOPS SSD v2 (ebs.csi.aws.com). High IOPS for demanding workloads.
+    #              io2 Block Express supported on Nitro instances for up to 256,000 IOPS.
+    # local-nvme — Host-local NVMe via hostPath (static PV). Requires i3/i3en/i4i instance family
+    #              with instance store formatted and mounted at nvmePath before scheduling.
+    diskType: gp3
+
+    # IOPS — applies to gp3 (baseline 3000, max 16,000) and io2 (max 256,000).
+    iops: "6000"
+
+    # Throughput in MB/s — gp3 only (baseline 125, max 1,000). Ignored for io2 and local-nvme.
+    throughput: "250"
+
+    # nvmePath is only used when diskType=local-nvme.
+    # Set to the mount point of the NVMe instance store on the node.
+    nvmePath: /mnt/nvme
+  azure:
+    # Storage type to use when cluster.provider=azure.
+    # azure-file    — Azure Files (file.csi.azure.com, Standard_LRS). Default, good for dev/test.
+    # premium-ssd-v1 — Managed Premium SSD P-series (disk.csi.azure.com, Premium_LRS). Supports caching.
+    # premium-ssd-v2 — Managed Premium SSD v2 (disk.csi.azure.com, PremiumV2_LRS). No caching. Higher IOPS ceiling.
+    # ultra-disk    — Ultra Disk (disk.csi.azure.com, UltraSSD_LRS). No caching. Requires --enable-ultra-ssd on nodepool.
+    # local-nvme    — Host-local NVMe via Azure Container Storage v2 (localdisk.csi.acstor.io). Requires the
+    #                 Azure Container Storage extension on the cluster and a VM size with local NVMe (Lsv3/Lasv4).
+    #                 Data is node-local: lost if the node is deleted/deallocated.
+    diskType: azure-file
+
+    # cachingMode applies to premium-ssd-v1 only.
+    # Premium SSD v2 and Ultra Disk do not support host caching (must be None).
+    # Options: None | ReadOnly | ReadWrite
+    cachingMode: ReadOnly
 
 # fixes permissions of volumes because besu runs as user `besu` and volumes prefer `root`
 volumePermissionsFix:
@@ -88,7 +128,7 @@ node:
       passwordPath: "/keys/accountPassword"
     p2p:
       enabled: true
-      host: ""                 # leave empty to use the pod's cluster-local DNS name (recommended); set explicitly to override
+      host: ""                 # leave empty to use the pod IP; set explicitly to override (overridden automatically when externalDns.enabled=true)
       port: 30303
       discovery: true
       staticNodes: "/config/static/static-nodes.json"
@@ -149,6 +189,12 @@ node:
       accountsContract:
         enabled: false
         address: "0x0000000000000000000000000000000000008888"
+  service:
+    headless: true                # clusterIP: None; single-replica-per-release means ClusterIP's LB/VIP adds no value, just an extra NAT hop
+  externalDns:
+    enabled: false               # set true to add ExternalDNS hostname annotation to the service
+    hostname: ""                 # DNS hostname to register (e.g. bootnode-a.besu.internal); also used as --p2p-host when set
+    ttl: "60"                    # DNS record TTL in seconds; keep low so records update quickly after pod rescheduling
 
 image:
   besu:
@@ -160,23 +206,7 @@ image:
     tag: "20260820"
     pullPolicy: IfNotPresent
 
-tolerations:
-  - key: ethereum
-    operator: Equal
-    value: 'true'
-    effect: NoSchedule
-  - key: ethereum
-    operator: Equal
-    value: 'true'
-    effect: NoExecute
+tolerations: []
 
-affinity:
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: workloadType
-          operator: In
-          values:
-            - ethereum
+affinity: {}
 

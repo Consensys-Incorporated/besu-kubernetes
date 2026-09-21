@@ -49,9 +49,11 @@ spec:
       tolerations:
 {{ toYaml .Values.tolerations | indent 8 }}
 {{- end }}
-{{- if .Values.affinity }}
+{{- /* Hooks only touch secrets/configmaps, so they take nodeAffinity but not podAntiAffinity (which would leave them unschedulable when every besu node already runs a besu pod). */}}
+{{- if and .Values.affinity .Values.affinity.nodeAffinity }}
       affinity:
-{{ toYaml .Values.affinity | indent 8 }}
+        nodeAffinity:
+{{ toYaml .Values.affinity.nodeAffinity | indent 10 }}
 {{- end }}
       containers:
         - name: {{ template "besu-node.fullname" . }}-pre-start-hook
@@ -72,7 +74,7 @@ spec:
                   echo "ERROR: empty pubkey at $PUBKEY_LOC, skipping besu-peers update"
                   return 1
                 fi
-                NEEDLE="enode://$pubkey@{{ template "besu-node.fullname" . }}-0.{{ template "besu-node.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:30303?discport=0"
+                NEEDLE="enode://$pubkey@{{ if .Values.node.externalDns.enabled }}{{ .Values.node.externalDns.hostname }}{{ else }}{{ template "besu-node.fullname" . }}-0.{{ template "besu-node.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local{{ end }}:30303?discport=0"
                 kubectl -n {{ .Release.Namespace }} get configmap besu-peers -o jsonpath='{.data.static-nodes\.json}' > /tmp/static-nodes.json.raw 2>/dev/null
                 if ! jq empty /tmp/static-nodes.json.raw 2>/dev/null; then
                   echo '[]' > /tmp/static-nodes.json.raw

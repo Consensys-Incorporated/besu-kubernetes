@@ -1,0 +1,60 @@
+---
+
+pvtNetworkFlags:
+  removeKeysOnDelete: false
+  isBootnode: false
+
+cluster:
+  provider: azure
+  cloudNativeServices: false
+  reclaimPolicy: Delete
+
+azure:
+  serviceAccountName: besu-sa
+  identityClientId: azure-clientId
+  nodePoolIdentityClientId: azure-clientId
+  keyvaultName: azure-keyvault
+  tenantId: azure-tenantId
+  subscriptionId: azure-subscriptionId
+
+storage:
+  sizeLimit: "50Gi"
+  pvcSizeLimit: "50Gi"
+  reclaimPolicy: Delete
+  azure:
+    # Ultra Disk — lowest latency, highest IOPS ceiling.
+    # PREREQUISITE: the nodepool must be provisioned with --enable-ultra-ssd.
+    # Host caching is not supported on Ultra Disk (forced to None in the template).
+    diskType: ultra-disk
+
+node:
+  besu:
+    rpc:
+      maxActiveConnections: 80
+    metrics:
+      serviceMonitorEnabled: true
+    resources:
+      cpuLimit: 1
+      cpuRequest: 0.5
+      memLimit: "2G"
+      memRequest: "1G"
+
+tolerations:
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoSchedule
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: workloadType
+          operator: In
+          values:
+            - ethereum

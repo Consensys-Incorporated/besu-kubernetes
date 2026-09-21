@@ -49,9 +49,11 @@ spec:
       tolerations:
 {{ toYaml .Values.tolerations | indent 8 }}
 {{- end }}
-{{- if .Values.affinity }}
+{{- /* Hooks only touch secrets/configmaps, so they take nodeAffinity but not podAntiAffinity (which would leave them unschedulable when every besu node already runs a besu pod). */}}
+{{- if and .Values.affinity .Values.affinity.nodeAffinity }}
       affinity:
-{{ toYaml .Values.affinity | indent 8 }}
+        nodeAffinity:
+{{ toYaml .Values.affinity.nodeAffinity | indent 10 }}
 {{- end }}
       containers:
         - name: {{ template "besu-node.fullname" . }}-node-pre-delete-hook
