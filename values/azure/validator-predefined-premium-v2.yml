@@ -1,0 +1,64 @@
+---
+
+pvtNetworkFlags:
+  removeKeysOnDelete: false
+  isBootnode: false
+
+cluster:
+  provider: azure
+  cloudNativeServices: false
+  reclaimPolicy: Delete
+
+azure:
+  serviceAccountName: besu-sa
+  identityClientId: azure-clientId
+  nodePoolIdentityClientId: azure-clientId
+  keyvaultName: azure-keyvault
+  tenantId: azure-tenantId
+  subscriptionId: azure-subscriptionId
+
+storage:
+  sizeLimit: "50Gi"
+  pvcSizeLimit: "50Gi"
+  reclaimPolicy: Delete
+  azure:
+    # Premium SSD v2 (PremiumV2_LRS) — sub-millisecond latency, IOPS and throughput set independently of size.
+    # PREREQUISITE: a zonal nodepool (in most regions v2 disks only attach to zonal VMs).
+    # Host caching is not supported on Premium SSD v2 (forced to None in the template).
+    # Limits: 3,000-80,000 IOPS (500/GiB), 125-2,000 MB/s (0.25 MB/s per IOPS). The VM's uncached disk
+    # limit caps the total across all disks on a node.
+    diskType: premium-ssd-v2
+    diskIOPSReadWrite: "20000"
+    diskMBpsReadWrite: "500"
+
+node:
+  besu:
+    rpc:
+      maxActiveConnections: 80
+    metrics:
+      serviceMonitorEnabled: true
+    resources:
+      cpuLimit: 1
+      cpuRequest: 0.5
+      memLimit: "2G"
+      memRequest: "1G"
+
+tolerations:
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoSchedule
+  - key: ethereum
+    operator: Equal
+    value: 'true'
+    effect: NoExecute
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: workloadType
+          operator: In
+          values:
+            - ethereum
