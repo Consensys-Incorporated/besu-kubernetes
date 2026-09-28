@@ -55,7 +55,7 @@ data:
     {{ end }}
 
     {{ if .Values.node.besu.p2p.bootnodes -}}
-    bootnodes=[{{ range $i, $e := .Values.node.besu.p2p.bootnodes }}{{ if $i }},{{ end }}"{{ $e }}"{{ end }}]
+    bootnodes=[{{ range $i, $e := splitList "," .Values.node.besu.p2p.bootnodes }}{{ if $i }},{{ end }}{{ trim $e | quote }}{{ end }}]
     {{ end }}
 
     {{ if or .Values.node.besu.rpc.enabled .Values.node.besu.graphql.enabled .Values.node.besu.ws.enabled }}

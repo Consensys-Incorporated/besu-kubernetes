@@ -1,6 +1,6 @@
 FROM ubuntu:26.04
 
-ARG KUBECTL_VERSION=1.36.0
+ARG KUBECTL_VERSION=1.37.0
 ARG QGT_VERSION=0.2.20
 ARG TARGETARCH
 
@@ -9,6 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    jq \
     wget \
     net-tools \
     dnsutils \

@@ -22,6 +22,9 @@ spec:
   type: ClusterIP
   {{- if .Values.node.service.headless }}
   clusterIP: None
+  # Keep the pod IP (and its ExternalDNS record) published while the pod restarts, so a
+  # policy=sync ExternalDNS only drops the record when the Service itself is removed
+  publishNotReadyAddresses: true
   {{- end }}
   selector:
     app.kubernetes.io/part-of: {{ include "besu-node.fullname" . }}

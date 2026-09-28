@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       kubectl_version:
-        description: "kubectl version to bake in (e.g. 1.36.3)"
+        description: "kubectl version to bake in (e.g. 1.37.1)"
         required: false
-        default: "1.36.3"
+        default: "1.37.1"
 
 env:
   IMAGE_NAME: consensys/besu-k8s-hooks

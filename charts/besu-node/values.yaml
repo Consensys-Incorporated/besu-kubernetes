@@ -104,7 +104,7 @@ node:
     privateKeyPath: "/keys/nodekey"
     genesisFilePath: "/etc/genesis/genesis.json"
     logging: INFO
-    customLabels: {}
+    customLabels: {}               # added to the StatefulSet and its pods, e.g. besu-role: rpc for a shared RPC LoadBalancer Service
     identity: ""                   # optional human-readable node label (shown in admin_nodeInfo)
     syncMode: "FULL"               # FULL | FAST | SNAP | CHECKPOINT
     dataStorageFormat: "FOREST"    # FOREST | BONSAI
@@ -135,7 +135,7 @@ node:
       passwordPath: "/keys/accountPassword"
     p2p:
       enabled: true
-      host: ""                 # leave empty to use the pod IP; set explicitly to override (overridden automatically when externalDns.enabled=true)
+      host: ""                 # leave empty to use the pod IP; must be an IP address (Besu rejects hostnames for --p2p-host)
       port: 30303
       discovery: true
       staticNodes: "/config/static/static-nodes.json"
@@ -200,17 +200,17 @@ node:
     headless: true                # clusterIP: None; single-replica-per-release means ClusterIP's LB/VIP adds no value, just an extra NAT hop
   externalDns:
     enabled: false               # set true to add ExternalDNS hostname annotation to the service
-    hostname: ""                 # DNS hostname to register (e.g. bootnode-a.besu.internal); also used as --p2p-host when set
+    hostname: ""                 # DNS hostname to register (e.g. bootnode-a.besu.internal); peers dial this name via static nodes / bootnodes
     ttl: "60"                    # DNS record TTL in seconds; keep low so records update quickly after pod rescheduling
 
 image:
   besu:
     repository: hyperledger/besu
-    tag: 26.7.0
+    tag: ""                      # defaults to .Chart.appVersion when empty
     pullPolicy: IfNotPresent
   hooks:
     repository: consensys/besu-k8s-hooks
-    tag: "20260820"
+    tag: "20261001"
     pullPolicy: IfNotPresent
 
 tolerations: []

@@ -60,6 +60,9 @@ spec:
         app.kubernetes.io/release: {{ .Release.Name }}
         app.kubernetes.io/managed-by: helm
         app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+        {{- range $labelName, $labelValue := .Values.node.besu.customLabels }}
+        {{ $labelName }}: {{ $labelValue | quote }}
+        {{- end }}
       annotations:
         {{- if .Values.node.besu.metrics.enabled }}
         prometheus.io/scrape: "true"
@@ -102,7 +105,7 @@ spec:
       containers:
       
       - name: {{ .Release.Name }}-besu
-        image: {{ .Values.image.besu.repository }}:{{ .Values.image.besu.tag }}
+        image: {{ .Values.image.besu.repository }}:{{ .Values.image.besu.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.image.besu.pullPolicy }}
         resources:
           requests:
@@ -178,7 +181,7 @@ spec:
               --config-file=/etc/besu/config.toml \
               --Xdns-enabled=true --Xdns-update-enabled=true \
               --nat-method=NONE \
-              --p2p-host={{ if .Values.node.externalDns.enabled }}{{ .Values.node.externalDns.hostname }}{{ else if .Values.node.besu.p2p.host }}{{ .Values.node.besu.p2p.host }}{{ else }}${POD_IP}{{ end }}{{ range .Values.node.besu.extraCLIArgs }} \
+              --p2p-host={{ if .Values.node.besu.p2p.host }}{{ .Values.node.besu.p2p.host }}{{ else }}${POD_IP}{{ end }}{{ range .Values.node.besu.extraCLIArgs }} \
               {{ . }}{{ end }}
 
         livenessProbe:
