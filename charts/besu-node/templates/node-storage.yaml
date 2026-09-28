@@ -45,6 +45,12 @@ parameters:
   skuName: PremiumV2_LRS
   kind: managed
   cachingMode: None
+{{- with .Values.storage.azure.diskIOPSReadWrite }}
+  DiskIOPSReadWrite: {{ . | quote }}
+{{- end }}
+{{- with .Values.storage.azure.diskMBpsReadWrite }}
+  DiskMBpsReadWrite: {{ . | quote }}
+{{- end }}
 
 {{- else if eq .Values.storage.azure.diskType "ultra-disk" }}
 # Ultra Disk (UltraSSD_LRS) — lowest latency, highest IOPS. Host caching NOT supported.
@@ -55,6 +61,12 @@ parameters:
   skuName: UltraSSD_LRS
   kind: managed
   cachingMode: None
+{{- with .Values.storage.azure.diskIOPSReadWrite }}
+  DiskIOPSReadWrite: {{ . | quote }}
+{{- end }}
+{{- with .Values.storage.azure.diskMBpsReadWrite }}
+  DiskMBpsReadWrite: {{ . | quote }}
+{{- end }}
 
 {{- else }}
 # Azure File (Standard_LRS, default) — shared file storage via SMB.

@@ -77,6 +77,13 @@ storage:
     # Options: None | ReadOnly | ReadWrite
     cachingMode: ReadOnly
 
+    # Provisioned performance for premium-ssd-v2 and ultra-disk (ignored for other types).
+    # Leave empty to take Azure's defaults. The VM's uncached disk limit caps the total across all disks on a node.
+    # premium-ssd-v2: 3,000-80,000 IOPS (500/GiB), 125-2,000 MB/s (0.25 MB/s per IOPS)
+    # ultra-disk:     100-400,000 IOPS (1,000/GiB), 1-10,000 MB/s (0.25 MB/s per IOPS)
+    diskIOPSReadWrite: ""
+    diskMBpsReadWrite: ""
+
 # fixes permissions of volumes because besu runs as user `besu` and volumes prefer `root`
 volumePermissionsFix:
   - local
