@@ -207,7 +207,7 @@ image:
     pullPolicy: IfNotPresent
   hooks:
     repository: consensys/besu-k8s-hooks
-    tag: "20261001"
+    tag: "20261026"
     pullPolicy: IfNotPresent
 
 tolerations: []
