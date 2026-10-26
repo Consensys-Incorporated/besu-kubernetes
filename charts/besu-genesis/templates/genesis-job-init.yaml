@@ -95,7 +95,7 @@ spec:
               function safeWriteSecret {
                 key=$1
                 fpath=$2
-                kubectl create secret generic ${key}-keys --namespace {{ .Release.Namespace }} --from-file=nodekey=${fpath}/nodekey --from-file=nodekey.pub=${fpath}/nodekey.pub --from-file=enode=${fpath}/nodekey.pub --from-file=address=${fpath}/address --from-file=accountPrivate.key=${fpath}/accountPrivateKey --from-file=accountPassword=${fpath}/accountPassword --from-file=accountKeystore=${fpath}/accountKeystore --from-file=accountAddress=${fpath}/accountAddress
+                kubectl create secret generic ${key}-keys --namespace {{ .Release.Namespace }} --from-file=nodekey=${fpath}/nodekey --from-file=nodekey.pub=${fpath}/nodekey.pub --from-file=enode=${fpath}/nodekey.pub --from-file=address=${fpath}/address
               }
 
 {{- end }}
@@ -111,24 +111,20 @@ spec:
                 FOLDER_PATH=$1
                 kubectl get configmap --namespace {{ .Release.Namespace }} besu-genesis
                 if [ $? -ne 0 ]; then
-                  kubectl create configmap --namespace {{ .Release.Namespace }} besu-genesis --from-file=genesis.json=$FOLDER_PATH/besu/genesis.json
+                  kubectl create configmap --namespace {{ .Release.Namespace }} besu-genesis --from-file=genesis.json=$FOLDER_PATH/genesis.json
                 fi
               }
 
 {{- if .Values.genesisConfig.predefined }}
               echo "Using predefined genesis and keys..."
               FOLDER_PATH=/generated-config
-              mkdir -p ${FOLDER_PATH}/besu
-              echo '{{ .Values.genesisConfig.rawGenesisJson | b64enc }}' | base64 -d > ${FOLDER_PATH}/besu/genesis.json
+              mkdir -p ${FOLDER_PATH}
+              echo '{{ .Values.genesisConfig.rawGenesisJson | b64enc }}' | base64 -d > ${FOLDER_PATH}/genesis.json
 {{- range $v := .Values.genesisConfig.validators }}
               mkdir -p ${FOLDER_PATH}/validator{{ $v.index }}
               echo -n '{{ $v.nodekey }}' > ${FOLDER_PATH}/validator{{ $v.index }}/nodekey
               echo -n '{{ $v.nodekeypub }}' > ${FOLDER_PATH}/validator{{ $v.index }}/nodekey.pub
               echo -n '{{ $v.address }}' > ${FOLDER_PATH}/validator{{ $v.index }}/address
-              echo -n '{{ $v.accountPrivateKey }}' > ${FOLDER_PATH}/validator{{ $v.index }}/accountPrivateKey
-              echo -n '{{ $v.accountPassword | default "password" }}' > ${FOLDER_PATH}/validator{{ $v.index }}/accountPassword
-              echo '{{ $v.accountKeystore | b64enc }}' | base64 -d > ${FOLDER_PATH}/validator{{ $v.index }}/accountKeystore
-              echo -n '{{ $v.accountAddress }}' > ${FOLDER_PATH}/validator{{ $v.index }}/accountAddress
 {{- end }}
               echo '[' > ${FOLDER_PATH}/static-nodes.json
 {{- range $j, $v := .Values.genesisConfig.validators }}
@@ -161,10 +157,6 @@ spec:
               safeWriteSecret besu-node-validator-{{ $v.index }}-enode $FOLDER_PATH/validator{{ $v.index }}/nodekey.pub
               safeWriteSecret besu-node-validator-{{ $v.index }}-address $FOLDER_PATH/validator{{ $v.index }}/address
               kubectl create configmap --namespace {{ $.Release.Namespace }} besu-node-validator-{{ $v.index }}-address --from-file=address=$FOLDER_PATH/validator{{ $v.index }}/address
-              safeWriteSecret besu-node-validator-{{ $v.index }}-accountPrivateKey $FOLDER_PATH/validator{{ $v.index }}/accountPrivateKey
-              safeWriteSecret besu-node-validator-{{ $v.index }}-accountPassword $FOLDER_PATH/validator{{ $v.index }}/accountPassword
-              safeWriteSecret besu-node-validator-{{ $v.index }}-accountKeystore $FOLDER_PATH/validator{{ $v.index }}/accountKeystore
-              safeWriteSecret besu-node-validator-{{ $v.index }}-accountAddress $FOLDER_PATH/validator{{ $v.index }}/accountAddress
 {{- else }}
               safeWriteSecret besu-node-validator-{{ $v.index }} "$FOLDER_PATH/validator{{ $v.index }}"
               kubectl create configmap --namespace {{ $.Release.Namespace }} besu-node-validator-{{ $v.index }}-address --from-file=address=$FOLDER_PATH/validator{{ $v.index }}/address
@@ -172,7 +164,8 @@ spec:
 {{- end }}
 {{- else }}
               echo "Creating config ..."
-              FOLDER_PATH=$(quorum-genesis-tool --consensus {{ .Values.genesisConfig.genesis.config.algorithm.consensus }} {{ if .Values.genesisConfig.blockchain.nodes.generate }} --validators {{ .Values.genesisConfig.blockchain.nodes.count }} {{ else }} --validators 0 {{ end }} --members 0 {{ if .Values.genesisConfig.validatorsAsBootnodes }}--bootnodes 0{{ else }}--bootnodes 2{{ end }} --chainID {{ .Values.genesisConfig.genesis.config.chainId }} --blockperiod {{ .Values.genesisConfig.genesis.config.algorithm.blockperiodseconds }} --epochLength {{ .Values.genesisConfig.genesis.config.algorithm.epochlength }} --requestTimeout {{ .Values.genesisConfig.genesis.config.algorithm.requesttimeoutseconds }} --difficulty {{ .Values.genesisConfig.genesis.difficulty }} --gasLimit {{ .Values.genesisConfig.genesis.gasLimit }} --coinbase {{ .Values.genesisConfig.genesis.coinbase }} {{ if .Values.genesisConfig.blockchain.accountPassword }} --accountPassword {{ .Values.genesisConfig.blockchain.accountPassword }} {{ end }} --maxCodeSize {{ .Values.genesisConfig.genesis.maxCodeSize }} --txnSizeLimit {{ .Values.genesisConfig.genesis.txnSizeLimit }} --quickstartDevAccounts {{ .Values.genesisConfig.genesis.includeQuickStartAccounts }} --alloc {{ if .Values.genesisConfig.genesis.alloc }} '{{ .Values.genesisConfig.genesis.alloc | toJson }}' {{ else }} '{}' {{ end }} --outputPath /generated-config | tail -1 | sed -e "s/^Artifacts in folder: //")
+              FOLDER_PATH=/generated-config
+              besu-genesis-tool --consensus {{ .Values.genesisConfig.genesis.config.algorithm.consensus }} {{ if .Values.genesisConfig.blockchain.nodes.generate }} --validators {{ .Values.genesisConfig.blockchain.nodes.count }} {{ else }} --validators 0 {{ end }} --members 0 {{ if .Values.genesisConfig.validatorsAsBootnodes }}--bootnodes 0{{ else }}--bootnodes 2{{ end }} --chainID {{ .Values.genesisConfig.genesis.config.chainId }} --blockperiod {{ .Values.genesisConfig.genesis.config.algorithm.blockperiodseconds }} --epochLength {{ .Values.genesisConfig.genesis.config.algorithm.epochlength }} --requestTimeout {{ .Values.genesisConfig.genesis.config.algorithm.requesttimeoutseconds }} --difficulty {{ .Values.genesisConfig.genesis.difficulty }} --gasLimit {{ .Values.genesisConfig.genesis.gasLimit }} --coinbase {{ .Values.genesisConfig.genesis.coinbase }} --maxCodeSize {{ .Values.genesisConfig.genesis.maxCodeSize }} --quickstartDevAccounts {{ .Values.genesisConfig.genesis.includeQuickStartAccounts | default false }} --alloc {{ if .Values.genesisConfig.genesis.alloc }} '{{ .Values.genesisConfig.genesis.alloc | toJson }}' {{ else }} '{}' {{ end }} --accounts 0 --outputPath $FOLDER_PATH --noOutputTimestamp
 {{- end }}
 
 
@@ -199,11 +192,6 @@ spec:
                   safeWriteSecret besu-node-validator-${i}-enode $FOLDER_PATH/${f}/nodekey.pub 
                   safeWriteSecret besu-node-validator-${i}-address $FOLDER_PATH/${f}/address
                   kubectl create configmap --namespace {{ .Release.Namespace }} besu-node-validator-${i}-address --from-file=address=$FOLDER_PATH/${f}/address
-
-                  safeWriteSecret besu-node-validator-${i}-accountPrivateKey $FOLDER_PATH/${f}/accountPrivateKey
-                  safeWriteSecret besu-node-validator-${i}-accountPassword $FOLDER_PATH/${f}/accountPassword
-                  safeWriteSecret besu-node-validator-${i}-accountKeystore $FOLDER_PATH/${f}/accountKeystore 
-                  safeWriteSecret besu-node-validator-${i}-accountAddress $FOLDER_PATH/${f}/accountAddress 
 
 {{- else }}
                   

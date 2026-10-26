@@ -28,7 +28,7 @@ genesisConfig:
   predefined: false
 
   # validatorsAsBootnodes: true  → use the first 2 validators as bootnodes (default)
-  # validatorsAsBootnodes: false → quorum-genesis-tool generates 2 dedicated bootnode keys
+  # validatorsAsBootnodes: false → besu-genesis-tool generates 2 dedicated bootnode keys
   validatorsAsBootnodes: true
 
   # --- Used when predefined: false ---
@@ -45,12 +45,18 @@ genesisConfig:
     difficulty: '0x1'
     coinbase: '0x0000000000000000000000000000000000000000'
     maxCodeSize: 64000  # 64 KB
-    txnSizeLimit: 64000  # 64 KB
+    # Prefunded accounts. None by default - Besu only needs node keys to run.
+    # includeQuickStartAccounts adds the well-known besu-dev-quickstart test accounts (keys are public, never use in production)
+    includeQuickStartAccounts: false
+    # alloc prefunds accounts you already hold, e.g.
+    # alloc:
+    #   "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73":
+    #     balance: "1000000000000000000000"
+    alloc: {}
   blockchain:
     nodes:
       generate: true
       count: 4
-    accountPassword: 'password'
 
   # --- Used when predefined: true ---
   # Supply the raw genesis.json content and one entry per validator.
@@ -67,11 +73,6 @@ genesisConfig:
   #   nodekey: "3ee652..."           # hex-encoded private node key
   #   nodekeypub: "a1b2c3..."        # hex-encoded public node key (enode id)
   #   address: "0x1234..."           # node address derived from nodekey
-  #   accountPrivateKey: "abcd..."   # account private key
-  #   accountPassword: "password"
-  #   accountKeystore: |             # keystore JSON
-  #     { "version": 3, ... }
-  #   accountAddress: "0x5678..."    # account address
   validators: []
 
 

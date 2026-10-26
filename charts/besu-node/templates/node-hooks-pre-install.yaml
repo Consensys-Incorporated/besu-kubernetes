@@ -124,7 +124,7 @@ spec:
                 kubectl get secret ${key}-keys --namespace {{ .Release.Namespace }} -o json > /dev/null 2>&1
                 if [ $? -ne 0 ]; then
                   echo "Creating new $key"
-                  kubectl create secret generic ${key}-keys --namespace {{ .Release.Namespace }} --from-file=nodekey=${fpath}/nodekey --from-file=nodekey.pub=${fpath}/nodekey.pub --from-file=enode=${fpath}/nodekey.pub --from-file=address=${fpath}/address --from-file=accountPrivate.key=${fpath}/accountPrivateKey --from-file=accountPassword=${fpath}/accountPassword --from-file=accountKeystore=${fpath}/accountKeystore --from-file=accountAddress=${fpath}/accountAddress
+                  kubectl create secret generic ${key}-keys --namespace {{ .Release.Namespace }} --from-file=nodekey=${fpath}/nodekey --from-file=nodekey.pub=${fpath}/nodekey.pub --from-file=enode=${fpath}/nodekey.pub --from-file=address=${fpath}/address
                 else
                   echo "Reusing an existing $key"
                   # if the key exists pull it from secrets so that when you update the enodes configmap, you have the right value
@@ -137,7 +137,8 @@ spec:
 
               echo "{{ template "besu-node.fullname" . }} hook ..."
               echo "Nodekey generation ..."
-              FOLDER_PATH=$(quorum-genesis-tool --validators 0 --members 1 --bootnodes 0 {{ if .Values.node.besu.account.password }} --accountPassword {{ .Values.node.besu.account.password }} {{ end }} --outputPath /generated-config | tail -1 | sed -e "s/^Artifacts in folder: //")
+              FOLDER_PATH=/generated-config
+              besu-genesis-tool --validators 0 --members 1 --bootnodes 0 --accounts 0 --outputPath $FOLDER_PATH --noOutputTimestamp
               echo "Creating {{ template "besu-node.fullname" . }} secrets in k8s ..."
 
 {{- if .Values.cluster.cloudNativeServices }}
@@ -146,10 +147,6 @@ spec:
               safeWriteSecret {{ template "besu-node.fullname" . }}-nodekeypub $FOLDER_PATH/member0/nodekey.pub
               safeWriteSecret {{ template "besu-node.fullname" . }}-enode $FOLDER_PATH/member0/nodekey.pub
               safeWriteSecret {{ template "besu-node.fullname" . }}-address $FOLDER_PATH/member0/address
-              safeWriteSecret {{ template "besu-node.fullname" . }}-accountPrivateKey $FOLDER_PATH/member0/accountPrivateKey
-              safeWriteSecret {{ template "besu-node.fullname" . }}-accountPassword $FOLDER_PATH/member0/accountPassword
-              safeWriteSecret {{ template "besu-node.fullname" . }}-accountKeystore $FOLDER_PATH/member0/accountKeystore
-              safeWriteSecret {{ template "besu-node.fullname" . }}-accountAddress $FOLDER_PATH/member0/accountAddress
 {{- else }}
               safeWriteSecret {{ template "besu-node.fullname" . }} $FOLDER_PATH/member0
 {{- end }}
@@ -157,7 +154,7 @@ spec:
               cat $FOLDER_PATH/member0/nodekey.pub > /tmp/enode
               cat /tmp/enode
               echo "Creating configmap for node address"
-              kubectl create configmap {{ template "besu-node.fullname" . }}-address --from-file=address=$FOLDER_PATH/${f}/member0/address
+              kubectl create configmap {{ template "besu-node.fullname" . }}-address --from-file=address=$FOLDER_PATH/member0/address
 
               update_peers_configmap /tmp/enode
               echo "Completed"

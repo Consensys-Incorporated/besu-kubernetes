@@ -1,7 +1,7 @@
 FROM ubuntu:26.04
 
 ARG KUBECTL_VERSION=1.37.0
-ARG QGT_VERSION=0.2.20
+ARG BGT_VERSION=0.0.4
 ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -21,7 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g quorum-genesis-tool@${QGT_VERSION}
+RUN npm install -g @consensys/besu-genesis-tool@${BGT_VERSION} \
+    && besu-genesis-tool --version
 
 RUN curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
         -o /usr/local/bin/kubectl \

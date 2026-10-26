@@ -130,9 +130,6 @@ node:
       jwtSecret: ""                # path to JWT secret file (used when jwtDisabled=false)
       hostAllowlist: '["*"]'
     extraCLIArgs: []               # extra flags appended verbatim to the besu command
-    account:
-      password: 'password'
-      passwordPath: "/keys/accountPassword"
     p2p:
       enabled: true
       host: ""                 # leave empty to use the pod IP; must be an IP address (Besu rejects hostnames for --p2p-host)

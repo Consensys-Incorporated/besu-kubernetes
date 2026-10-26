@@ -143,15 +143,10 @@ spec:
               deleteSecret {{ template "besu-node.fullname" . }}-nodekey
               deleteSecret {{ template "besu-node.fullname" . }}-nodekeypub
               deleteSecret {{ template "besu-node.fullname" . }}-enode
-              deleteSecret {{ template "besu-node.fullname" . }}-accountPrivateKey
-              deleteSecret {{ template "besu-node.fullname" . }}-accountPassword
-              deleteSecret {{ template "besu-node.fullname" . }}-accountKeystore
-              deleteSecret {{ template "besu-node.fullname" . }}-accountAddress
               deleteSecret {{ template "besu-node.fullname" . }}-address
 
 {{- else }}
               deleteSecret {{ template "besu-node.fullname" . }}-keys
-              deleteSecret {{ template "besu-node.fullname" . }}-account
 
 {{- end }}
 

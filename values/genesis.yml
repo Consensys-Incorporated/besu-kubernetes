@@ -17,13 +17,13 @@ azure:
   tenantId: azure-tenantId
   subscriptionId: azure-subscriptionId
 
-# genesisConfig.predefined: false → generate genesis + validator keys via quorum-genesis-tool
+# genesisConfig.predefined: false → generate genesis + validator keys via besu-genesis-tool
 # genesisConfig.blockchain.nodes.count sets the number of validators
 genesisConfig:
   predefined: false
 
   # validatorsAsBootnodes: true  → use the first 2 validators as bootnodes (default)
-  # validatorsAsBootnodes: false → quorum-genesis-tool generates 2 dedicated bootnode keys
+  # validatorsAsBootnodes: false → besu-genesis-tool generates 2 dedicated bootnode keys
   # node.besu.p2p.bootnodes string takes highest priority over either option.
   validatorsAsBootnodes: true
 
@@ -40,9 +40,7 @@ genesisConfig:
     coinbase: '0x0000000000000000000000000000000000000000'
     includeQuickStartAccounts: false
     maxCodeSize: 64000
-    txnSizeLimit: 64000
   blockchain:
     nodes:
       generate: true
       count: 4
-    accountPassword: 'password'
