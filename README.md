@@ -185,6 +185,16 @@ kubectl port-forward -n monitoring $(kubectl get pod -n monitoring -l app.kubern
 ```
 ### _For Besu:_
 
+The charts are published to a Helm repository on each release, so you can install them without cloning this repo:
+
+```bash
+helm repo add besu https://consensys-incorporated.github.io/besu-kubernetes
+helm repo update
+helm search repo besu
+```
+
+The commands below use the local `./charts/...` paths. To use the published charts instead, replace `./charts/besu-genesis` with `besu/besu-genesis` and `./charts/besu-node` with `besu/besu-node`, and add `--version <x.y.z>` to pin a release. The `--values` files under [values/](values/) live in this repo, so you'll still need copies of them.
+
 ```bash
 # The following step creates config maps required for subsequent steps. Allow Kubernetes jobs to complete the process before proceeding to next steps. 
 # It has been noted that genesis tool take a little time to complete. Wait for the pod to complete its work.
