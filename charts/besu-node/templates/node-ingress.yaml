@@ -1,0 +1,55 @@
+{{- if .Values.node.besu.rpc.ingress.enabled }}
+{{- if not (or .Values.node.besu.rpc.enabled .Values.node.besu.ws.enabled) }}
+{{- fail "node.besu.rpc.ingress.enabled requires node.besu.rpc.enabled or node.besu.ws.enabled" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "besu-node.fullname" . }}-rpc
+  labels:
+    app.kubernetes.io/name: {{ include "besu-node.fullname" . }}
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: {{ include "besu-node.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    helm.sh/chart: {{ include "besu-node.chart" . }}
+  {{- with .Values.node.besu.rpc.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- with .Values.node.besu.rpc.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.node.besu.rpc.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.node.besu.rpc.ingress.host | quote }}
+      secretName: {{ .Values.node.besu.rpc.ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.node.besu.rpc.ingress.host | quote }}
+      http:
+        paths:
+          {{- if .Values.node.besu.rpc.enabled }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.node.besu.rpc.ingress.serviceName | default (include "besu-node.fullname" .) }}
+                port:
+                  number: {{ .Values.node.besu.rpc.port }}
+          {{- end }}
+          {{- if .Values.node.besu.ws.enabled }}
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.node.besu.rpc.ingress.serviceName | default (include "besu-node.fullname" .) }}
+                port:
+                  number: {{ .Values.node.besu.ws.port }}
+          {{- end }}
+{{- end }}
