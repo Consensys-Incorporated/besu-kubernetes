@@ -39,6 +39,9 @@ spec:
       serviceAccountName: {{ include "besu-genesis.name" . }}-sa
 {{- end }}
       restartPolicy: "Never"
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
 {{- if .Values.tolerations }}
       tolerations:
 {{ toYaml .Values.tolerations | indent 8 }}
@@ -51,11 +54,23 @@ spec:
         - name: generate-genesis
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           securityContext:
-            runAsUser: 0
+            runAsUser: 65534 # nobody, the image's user
+            runAsGroup: 65534
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            # kubectl, az and aws write their caches and login state under $HOME
+            - name: HOME
+              value: /tmp
           volumeMounts:
             - name: generated-config
               mountPath: /generated-config
+            - name: tmp
+              mountPath: /tmp
           command:
             - /bin/bash
             - -c
@@ -255,4 +270,6 @@ spec:
 
       volumes:
         - name: generated-config
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}

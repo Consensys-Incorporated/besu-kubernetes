@@ -88,6 +88,12 @@ spec:
       affinity:
 {{ toYaml .Values.affinity | indent 8 }}
 {{- end }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        # besu runs as uid/gid 1000; gives it group write on volumes the init container doesn't chown (e.g. azure)
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
       initContainers:
 
 {{- if has .Values.cluster.provider .Values.volumePermissionsFix }}
@@ -100,6 +106,11 @@ spec:
             mountPath: /data
         securityContext:
           runAsUser: 0
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+            add: ["CHOWN", "DAC_OVERRIDE", "FOWNER"]
 {{- end}}
 
       containers:
@@ -107,6 +118,14 @@ spec:
       - name: {{ .Release.Name }}-besu
         image: {{ .Values.image.besu.repository }}:{{ .Values.image.besu.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.image.besu.pullPolicy }}
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true # /tmp is an emptyDir, for JNA's native library
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         resources:
           requests:
             cpu: "{{ .Values.node.besu.resources.cpuRequest }}"
@@ -152,6 +171,8 @@ spec:
             readOnly: true
           - name: data
             mountPath: {{ .Values.node.besu.dataPath }}
+          - name: tmp
+            mountPath: /tmp
         ports:
           - name: json-rpc
             containerPort: {{ .Values.node.besu.rpc.port }}
@@ -191,6 +212,8 @@ spec:
           initialDelaySeconds: 180
           periodSeconds: 60
       volumes:
+      - name: tmp
+        emptyDir: {}
       - name: genesis
         configMap:
           name: besu-genesis

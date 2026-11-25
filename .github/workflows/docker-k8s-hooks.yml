@@ -11,6 +11,8 @@ on:
 env:
   IMAGE_NAME: consensys/besu-k8s-hooks
 
+permissions: {} # lock everything by default; jobs grant what they need
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -22,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        with:
+          persist-credentials: false
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a  # v4
