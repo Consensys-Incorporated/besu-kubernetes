@@ -238,7 +238,9 @@ helm install rpc-1 ./charts/besu-node --namespace besu --values ./values/rpc.yml
 node:
   ingress:
     enabled: true
-    className: nginx
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt   # cert-manager issues the TLS secret below
     hosts: ["rpc-1.example.com"]
     tls:
       - secretName: rpc-1-tls
@@ -257,4 +259,4 @@ Before you turn either on:
 
 - **Expose RPC nodes only.** Don't expose validators or bootnodes.
 - **Lock down the API.** By default RPC has no authentication (`node.besu.rpc.authenticationEnabled: false`) and `node.besu.rpc.api` includes `ADMIN`, `DEBUG` and `PERM`. Turn authentication on, cut the API list down to what clients need (for example `["ETH","NET","WEB3"]`), or both.
-- **Use a controller that routes to pods.** The node Service is headless (`node.service.headless: true`), so the Ingress or Gateway has to send traffic straight to the pod. ingress-nginx, Envoy Gateway and the AWS Load Balancer Controller with `alb.ingress.kubernetes.io/target-type: ip` do this. Controllers that need a NodePort Service, such as the AWS controller's `instance` target type, won't work, because the chart doesn't create one.
+- **Use a controller that routes to pods.** The node Service is headless (`node.service.headless: true`), so the Ingress or Gateway has to send traffic straight to the pod. Traefik, ingress-nginx, Envoy Gateway and the AWS Load Balancer Controller with `alb.ingress.kubernetes.io/target-type: ip` do this. Controllers that need a NodePort Service, such as the AWS controller's `instance` target type, won't work, because the chart doesn't create one.

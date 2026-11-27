@@ -210,8 +210,8 @@ node:
   # Meant for RPC nodes. RPC has no authentication by default and its API list includes ADMIN and DEBUG, see the README.
   ingress:
     enabled: false
-    className: ""                # e.g. nginx
-    annotations: {}
+    className: ""                # e.g. traefik, nginx
+    annotations: {}              # e.g. {cert-manager.io/cluster-issuer: letsencrypt}
     hosts: []                    # e.g. ["rpc-1.example.com"]
     tls: []                      # e.g. [{secretName: rpc-1-tls, hosts: ["rpc-1.example.com"]}]
   httpRoute:                     # Gateway API; needs its CRDs and a Gateway
