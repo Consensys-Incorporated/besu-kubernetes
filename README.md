@@ -48,7 +48,7 @@ The `besu-node` chart creates a StorageClass for each node, and, when `cloudNati
 | `aws` | `storage.aws.diskType: gp3` / `io2` | `ebs.csi.aws.com` (Amazon EBS CSI driver) | **No** |
 | `aws` | `local-nvme` | none (static `hostPath` PV) | n/a. The instance store must be formatted and mounted on the node (see below) |
 | `azure` / `aws` | `cluster.cloudNativeServices: true` | External Secrets Operator (`external-secrets.io/v1` CRDs) | **No** |
-| `local` | — | the cluster's default provisioner (e.g. minikube `hostpath`) | Yes |
+| `local` | — | none (static `hostPath` PV at `/tmp/<release>`) | n/a. For local development only; data does not survive a node reboot (see [Local Development](#local-development)) |
 
 Check what's already installed:
 
@@ -146,6 +146,13 @@ kubectl describe externalsecret <fullname>-keys -n <namespace>   # auth / missin
 ```
 
 ## Local Development:
+
+These charts are built for cloud clusters (`azure` and `aws`). `cluster.provider: local` is for local development and testing only. Each node's data goes in a static `hostPath` PersistentVolume at `/tmp/<release>` on the Kubernetes node, not in a volume from the cluster's StorageClass. This is deliberate, to keep local setups simple. Treat the chain as disposable:
+
+- **Data doesn't survive a reboot.** When the node reboots, or `/tmp` is cleaned, every node's data is gone. Many Linux distributions clear `/tmp` at boot, and on some (for example Ubuntu 25.10 and later) it's held in memory.
+- **The loss is silent.** The pods come back, Helm reports the releases as healthy, and the network starts again from block 0 with the same genesis and keys. Check the block height if you're expecting an existing chain.
+
+For data that has to last, use `azure` or `aws` storage.
 
 Minikube defaults to 2 CPU's and 2GB of memory, unless configured otherwise. We recommend you starting with at least 16GB, depending on the amount of nodes you are spinning up - the recommended requirements for each besu node are 4GB
 
