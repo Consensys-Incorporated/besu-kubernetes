@@ -108,8 +108,16 @@ node:
     identity: ""                   # optional human-readable node label (shown in admin_nodeInfo)
     syncMode: "FULL"               # FULL | FAST | SNAP | CHECKPOINT
     dataStorageFormat: "FOREST"    # FOREST | BONSAI
+    bonsai:                        # only applied when dataStorageFormat=BONSAI; defaults match Besu's
+      parallelTxProcessingEnabled: true
+      parallelStateRootComputationEnabled: true
+      limitTrieLogsEnabled: true               # not written with syncMode FULL, where Besu forces it to false
+      historicalBlockLimit: 512                # historical state layers that can be loaded; also the trie logs kept when limitTrieLogsEnabled
+      trieLogsPruningWindowSize: 5000          # max blocks to load and prune trie logs for at startup
     minGasPrice: 0
     targetGasLimit: ""             # target block gas limit (empty = Besu default)
+    poaBlockTxsSelectionMaxTime: 75 # max time to select txs for a block, as a % of the PoA block period
+    apiGasPriceBlocks: 100         # blocks sampled for eth_gasPrice / eth_maxPriorityFeePerGas; 0 disables sampling
     revertReasonEnabled: true
     miner:
       enabled: false
@@ -118,10 +126,11 @@ node:
     txPool:
       type: "layered"              # layered | legacy
       priceBump: ""                # % bump required to replace a tx (empty = Besu default 10)
-      maxFutureBySender: ""        # max queued future txs per sender (empty = Besu default)
-      limitByAccountPercentage: "" # max fraction of pool a single account can use (empty = Besu default)
-      maxSize: ""                  # max total tx pool size (empty = Besu default)
-      retentionHours: ""           # hours to retain pending txs (legacy pool only, empty = Besu default)
+      # defaults below match Besu's; each is only written for the pool type it applies to
+      maxFutureBySender: 200       # max queued future txs per sender (layered)
+      limitByAccountPercentage: 0.001 # max fraction of pool a single account can use (legacy)
+      maxSize: 4096                # max total tx pool size (legacy)
+      retentionHours: 13           # hours to retain pending txs (legacy)
     engine:
       enabled: false               # set true to enable Engine API (PoS / Merge)
       host: "0.0.0.0"
@@ -135,8 +144,10 @@ node:
       host: ""                 # leave empty to use the pod IP; must be an IP address (Besu rejects hostnames for --p2p-host)
       port: 30303
       discovery: true
+      discoveryMode: "V4"          # V4 | V5 | BOTH; both/5 only matters for public testnets/mainnet
       staticNodes: "/config/static/static-nodes.json"
       maxPeers: 25
+      remoteConnectionsLimitEnabled: true   # limit the proportion of peers that may be remotely initiated
       bootnodes: ""                # enode:// URL(s) for bootnodes outside the cluster (e.g. bare-metal VMs); if set, used directly instead of the besu-bootnodes ConfigMap
       staticNodesList: []          # inline static node enode:// URLs; if set, a ConfigMap is created from this list
     rpc:

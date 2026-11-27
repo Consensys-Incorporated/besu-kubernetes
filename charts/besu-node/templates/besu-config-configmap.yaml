@@ -33,6 +33,21 @@ data:
     target-gas-limit={{ .Values.node.besu.targetGasLimit | quote }}
     {{ end }}
 
+    {{ if eq (upper .Values.node.besu.dataStorageFormat) "BONSAI" -}}
+    # Bonsai
+    bonsai-parallel-tx-processing-enabled={{ .Values.node.besu.bonsai.parallelTxProcessingEnabled }}
+    bonsai-parallel-state-root-computation-enabled={{ .Values.node.besu.bonsai.parallelStateRootComputationEnabled }}
+    bonsai-historical-block-limit={{ .Values.node.besu.bonsai.historicalBlockLimit }}
+    bonsai-trie-logs-pruning-window-size={{ .Values.node.besu.bonsai.trieLogsPruningWindowSize }}
+    {{- /* Besu refuses an explicit true with FULL sync (and forces it off itself), so true is only written for other sync modes */}}
+    {{ if not (and .Values.node.besu.bonsai.limitTrieLogsEnabled (eq (upper .Values.node.besu.syncMode) "FULL")) -}}
+    bonsai-limit-trie-logs-enabled={{ .Values.node.besu.bonsai.limitTrieLogsEnabled }}
+    {{ end }}
+    {{ end }}
+
+    poa-block-txs-selection-max-time={{ .Values.node.besu.poaBlockTxsSelectionMaxTime }}
+    api-gas-price-blocks={{ .Values.node.besu.apiGasPriceBlocks }}
+
     min-gas-price={{ .Values.node.besu.minGasPrice }}
     revert-reason-enabled={{ .Values.node.besu.revertReasonEnabled }}
 
@@ -49,9 +64,11 @@ data:
     # P2P network
     p2p-enabled={{ .Values.node.besu.p2p.enabled }}
     discovery-enabled={{ .Values.node.besu.p2p.discovery }}
+    discovery-mode={{ .Values.node.besu.p2p.discoveryMode | quote }}
     static-nodes-file={{ .Values.node.besu.p2p.staticNodes | quote }}
     p2p-port={{ .Values.node.besu.p2p.port }}
     max-peers={{ .Values.node.besu.p2p.maxPeers }}
+    remote-connections-limit-enabled={{ .Values.node.besu.p2p.remoteConnectionsLimitEnabled }}
     {{ end }}
 
     {{ if .Values.node.besu.p2p.bootnodes -}}
@@ -118,23 +135,17 @@ data:
     {{ end }}
 
     # Tx Pool
-    {{ if eq .Values.node.besu.txPool.type "legacy" -}}
-    tx-pool=legacy
-    {{ end }}
     {{ if .Values.node.besu.txPool.priceBump -}}
     tx-pool-price-bump={{ .Values.node.besu.txPool.priceBump }}
     {{ end }}
-    {{ if .Values.node.besu.txPool.maxFutureBySender -}}
-    tx-pool-max-future-by-sender={{ .Values.node.besu.txPool.maxFutureBySender }}
-    {{ end }}
-    {{ if .Values.node.besu.txPool.limitByAccountPercentage -}}
+    {{- /* Besu refuses to start if an option for one pool type is set on the other, so each is only written for its own type */}}
+    {{ if eq .Values.node.besu.txPool.type "legacy" -}}
+    tx-pool="legacy"
     tx-pool-limit-by-account-percentage={{ .Values.node.besu.txPool.limitByAccountPercentage }}
-    {{ end }}
-    {{ if .Values.node.besu.txPool.maxSize -}}
     tx-pool-max-size={{ .Values.node.besu.txPool.maxSize }}
-    {{ end }}
-    {{ if .Values.node.besu.txPool.retentionHours -}}
     tx-pool-retention-hours={{ .Values.node.besu.txPool.retentionHours }}
+    {{ else -}}
+    tx-pool-max-future-by-sender={{ .Values.node.besu.txPool.maxFutureBySender }}
     {{ end }}
 
     {{ if .Values.node.besu.permissions.enabled -}}
