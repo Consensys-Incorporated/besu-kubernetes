@@ -229,3 +229,34 @@ helm install rpc-1 ./charts/besu-node --namespace besu --values ./values/rpc.yml
 2024-09-12 05:12:09.037+00:00 | BftProcessorExecutor-QBFT-0 | INFO  | QbftBesuControllerBuilder | Produced #2 / 0 tx / 0 pending / 0 (0.0%) gas / (0xb04b1dfeca0605fd4e2cb2bb91085d3dc14d0c89da9a5b238204892201c571a4)
 2024-09-12 05:12:14.044+00:00 | BftProcessorExecutor-QBFT-0 | INFO  | QbftBesuControllerBuilder | Imported #3 / 0 tx / 0 pending / 0 (0.0%) gas / (0xb86626f296bdcf08d5e794cc8153d716ce0ac740a11109472655cff8abfe183a)
 ```
+
+### _Exposing RPC outside the cluster:_
+
+`besu-node` can create an Ingress (`node.ingress`) or a Gateway API HTTPRoute (`node.httpRoute`) for a node. Both are off by default, and you can enable one or the other, not both. Ingress is the common choice today, but the Gateway API is where Kubernetes is moving. They route `/` to JSON-RPC when `node.besu.rpc.enabled` is true, and `/ws` to WebSocket when `node.besu.ws.enabled` is true. The values follow the usual Helm chart layout:
+
+```yaml
+node:
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt   # cert-manager issues the TLS secret below
+    hosts: ["rpc-1.example.com"]
+    tls:
+      - secretName: rpc-1-tls
+        hosts: ["rpc-1.example.com"]
+  # or, with the Gateway API CRDs and a Gateway installed:
+  httpRoute:
+    enabled: true
+    parentRefs:
+      - name: gateway
+        namespace: gateway-system
+        sectionName: https
+    hostnames: ["rpc-1.example.com"]
+```
+
+Before you turn either on:
+
+- **Expose RPC nodes only.** Don't expose validators or bootnodes.
+- **Lock down the API.** By default RPC has no authentication (`node.besu.rpc.authenticationEnabled: false`) and `node.besu.rpc.api` includes `ADMIN`, `DEBUG` and `PERM`. Turn authentication on, cut the API list down to what clients need (for example `["ETH","NET","WEB3"]`), or both.
+- **Use a controller that routes to pods.** The node Service is headless (`node.service.headless: true`), so the Ingress or Gateway has to send traffic straight to the pod. Traefik, ingress-nginx, Envoy Gateway and the AWS Load Balancer Controller with `alb.ingress.kubernetes.io/target-type: ip` do this. Controllers that need a NodePort Service, such as the AWS controller's `instance` target type, won't work, because the chart doesn't create one.

@@ -206,6 +206,20 @@ node:
         address: "0x0000000000000000000000000000000000008888"
   service:
     headless: true                # clusterIP: None; single-replica-per-release means ClusterIP's LB/VIP adds no value, just an extra NAT hop
+  # Expose JSON-RPC (/) and WebSocket (/ws) outside the cluster; the paths follow node.besu.rpc.enabled / node.besu.ws.enabled.
+  # Meant for RPC nodes. RPC has no authentication by default and its API list includes ADMIN and DEBUG, see the README.
+  # Enable one, not both: Ingress is the common choice today, but the Gateway API (httpRoute) is where Kubernetes is moving.
+  ingress:
+    enabled: false
+    className: ""                # e.g. traefik, nginx
+    annotations: {}              # e.g. {cert-manager.io/cluster-issuer: letsencrypt}
+    hosts: []                    # e.g. ["rpc-1.example.com"]
+    tls: []                      # e.g. [{secretName: rpc-1-tls, hosts: ["rpc-1.example.com"]}]
+  httpRoute:                     # Gateway API; needs its CRDs and a Gateway
+    enabled: false
+    annotations: {}
+    parentRefs: []               # e.g. [{name: gateway, namespace: gateway-system, sectionName: https}]
+    hostnames: []                # e.g. ["rpc-1.example.com"]
   externalDns:
     enabled: false               # set true to add ExternalDNS hostname annotation to the service
     hostname: ""                 # DNS hostname to register (e.g. bootnode-a.besu.internal); peers dial this name via static nodes / bootnodes
