@@ -1,3 +1,6 @@
+{{- if and .Values.node.ingress.enabled .Values.node.httpRoute.enabled }}
+{{- fail "enable either node.ingress or node.httpRoute, not both" }}
+{{- end }}
 {{- if .Values.node.ingress.enabled }}
 {{- if not (or .Values.node.besu.rpc.enabled .Values.node.besu.ws.enabled) }}
 {{- fail "node.ingress.enabled needs node.besu.rpc.enabled or node.besu.ws.enabled" }}

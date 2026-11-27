@@ -232,7 +232,7 @@ helm install rpc-1 ./charts/besu-node --namespace besu --values ./values/rpc.yml
 
 ### _Exposing RPC outside the cluster:_
 
-`besu-node` can create an Ingress (`node.ingress`) or a Gateway API HTTPRoute (`node.httpRoute`) for a node. Both are off by default. They route `/` to JSON-RPC when `node.besu.rpc.enabled` is true, and `/ws` to WebSocket when `node.besu.ws.enabled` is true. The values follow the usual Helm chart layout:
+`besu-node` can create an Ingress (`node.ingress`) or a Gateway API HTTPRoute (`node.httpRoute`) for a node. Both are off by default, and you can enable one or the other, not both. Ingress is the common choice today, but the Gateway API is where Kubernetes is moving. They route `/` to JSON-RPC when `node.besu.rpc.enabled` is true, and `/ws` to WebSocket when `node.besu.ws.enabled` is true. The values follow the usual Helm chart layout:
 
 ```yaml
 node:
