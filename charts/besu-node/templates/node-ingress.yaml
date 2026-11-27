@@ -1,0 +1,59 @@
+{{- if .Values.node.ingress.enabled }}
+{{- if not (or .Values.node.besu.rpc.enabled .Values.node.besu.ws.enabled) }}
+{{- fail "node.ingress.enabled needs node.besu.rpc.enabled or node.besu.ws.enabled" }}
+{{- end }}
+{{- if not .Values.node.ingress.hosts }}
+{{- fail "node.ingress.enabled needs at least one entry in node.ingress.hosts" }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "besu-node.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "besu-node.fullname" . }}
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: {{ include "besu-node.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    helm.sh/chart: {{ include "besu-node.chart" . }}
+  {{- with .Values.node.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  {{- with .Values.node.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.node.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.node.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          {{- if $.Values.node.besu.rpc.enabled }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "besu-node.fullname" $ }}
+                port:
+                  number: {{ $.Values.node.besu.rpc.port }}
+          {{- end }}
+          {{- if $.Values.node.besu.ws.enabled }}
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "besu-node.fullname" $ }}
+                port:
+                  number: {{ $.Values.node.besu.ws.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}
