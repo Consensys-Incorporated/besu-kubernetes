@@ -3,6 +3,30 @@ entries:
   besu-genesis:
   - apiVersion: v1
     appVersion: latest
+    created: "2026-11-27T06:29:55.674191193Z"
+    description: Besu Genesis generator with Helm chart in Kubernetes
+    digest: aaf29b3fdaf00dc5441809e732a8fcf31668368be4ad400adf436ad3757033cc
+    home: https://besu.hyperledger.org
+    icon: http://besu.hyperledger.org/en/latest/favicon.ico
+    keywords:
+    - ethereum
+    - besu
+    - hyperledger
+    - enterprise
+    - blockchain
+    - pegasys
+    - consensys
+    maintainers:
+    - email: joshua.fernandes@consensys.net
+      name: Joshua Fernandes
+    name: besu-genesis
+    sources:
+    - https://github.com/hyperledger/besu
+    urls:
+    - https://github.com/Consensys-Incorporated/besu-kubernetes/releases/download/0.4.0/besu-genesis-0.4.0.tgz
+    version: 0.4.0
+  - apiVersion: v1
+    appVersion: latest
     created: "2026-11-27T05:42:20.951573637Z"
     description: Besu Genesis generator with Helm chart in Kubernetes
     digest: 9d7ae503f463bafcbda0412bd6f5afcc7eb9bb4b858c38cea0b8e9654da3f3df
@@ -52,6 +76,30 @@ entries:
   besu-node:
   - apiVersion: v1
     appVersion: 26.11.2
+    created: "2026-11-27T06:29:55.675241973Z"
+    description: Besu nodes for a POA network
+    digest: 4ec90af0e63d848e5e50567e87f3e6bccb9be7380febd64fe07d803d8500ebfa
+    home: https://besu.hyperledger.org
+    icon: http://besu.hyperledger.org/en/latest/favicon.ico
+    keywords:
+    - ethereum
+    - besu
+    - hyperledger
+    - enterprise
+    - blockchain
+    - pegasys
+    - consensys
+    maintainers:
+    - email: joshua.fernandes@consensys.net
+      name: Joshua Fernandes
+    name: besu-node
+    sources:
+    - https://github.com/hyperledger/besu
+    urls:
+    - https://github.com/Consensys-Incorporated/besu-kubernetes/releases/download/0.4.0/besu-node-0.4.0.tgz
+    version: 0.4.0
+  - apiVersion: v1
+    appVersion: 26.11.2
     created: "2026-11-27T05:42:20.952459536Z"
     description: Besu nodes for a POA network
     digest: 43cac184fa52f22b5064f36c088d057683062349ba66a08896deb0e07bfa2a69
@@ -98,4 +146,4 @@ entries:
     urls:
     - https://github.com/Consensys-Incorporated/besu-kubernetes/releases/download/0.2.0/besu-node-0.2.0.tgz
     version: 0.2.0
-generated: "2026-11-27T05:42:20.950634658Z"
+generated: "2026-11-27T06:29:55.673370325Z"
